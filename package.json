@@ -1,0 +1,17 @@
+{
+  "name": "treasury-rag-lab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.12.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web typecheck",
+    "test": "pnpm --filter @treasury-rag/contracts build && pnpm --filter @treasury-rag/api test"
+  }
+}
