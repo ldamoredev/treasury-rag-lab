@@ -2,7 +2,7 @@ import { HealthResponseSchema } from "@treasury-rag/contracts";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
-import { createTestApp } from "./support/create-test-app.js";
+import { createTestApp } from "./support/createTestApp.js";
 
 describe("GET /health", () => {
   it("returns a response that satisfies the shared contract", async () => {

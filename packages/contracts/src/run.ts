@@ -5,7 +5,7 @@ import {
   GroundedAnswerRequestSchema,
   GroundedAnswerResponseSchema,
   GroundedAnswerSchema,
-} from "./grounded-answer.js";
+} from "./groundedAnswer.js";
 import { SearchResultSchema, SearchStatsSchema } from "./search.js";
 
 export const RunRequestSchema = GroundedAnswerRequestSchema;

@@ -51,7 +51,7 @@ export {
   type GroundedAnswerRequest,
   type GroundedAnswerResponse,
   type GroundedClaim,
-} from "./grounded-answer.js";
+} from "./groundedAnswer.js";
 export {
   AnswerCompletedEventSchema,
   AnswerDeltaEventSchema,

@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type {
   SemanticSearchLabPresenter,
   SemanticSearchLabViewModel,
-} from "../presenters/semantic-search-lab-presenter";
+} from "../presenters/SemanticSearchLabPresenter";
 
 type SearchLabProps = {
   presenter: SemanticSearchLabPresenter;

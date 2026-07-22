@@ -1,12 +1,12 @@
 import express from "express";
 
-import type { ChunkPreviewController } from "./http/controllers/chunk-preview-controller.js";
-import type { DocumentsController } from "./http/controllers/documents-controller.js";
-import type { GroundedAnswerController } from "./http/controllers/grounded-answer-controller.js";
-import type { HealthController } from "./http/controllers/health-controller.js";
-import type { RunsController } from "./http/controllers/runs-controller.js";
-import type { SemanticSearchController } from "./http/controllers/semantic-search-controller.js";
-import { errorHandler } from "./http/errors/error-handler.js";
+import type { ChunkPreviewController } from "./http/controllers/ChunkPreviewController.js";
+import type { DocumentsController } from "./http/controllers/DocumentsController.js";
+import type { GroundedAnswerController } from "./http/controllers/GroundedAnswerController.js";
+import type { HealthController } from "./http/controllers/HealthController.js";
+import type { RunsController } from "./http/controllers/RunsController.js";
+import type { SemanticSearchController } from "./http/controllers/SemanticSearchController.js";
+import { errorHandler } from "./http/errors/errorHandler.js";
 
 export type HttpControllers = {
   health: HealthController;

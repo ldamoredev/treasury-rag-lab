@@ -72,7 +72,7 @@ React / HTTP → application → domain and ports
 - `packages/contracts` remains the source of truth for HTTP payloads and SSE
   event shapes on both sides of the workspace.
 - Concrete production dependencies are visible in
-  `composition/create-production-app.ts`; no production singleton is hidden
+  `composition/createProductionApp.ts`; no production singleton is hidden
   behind a getter or factory import.
 
 Transformers.js exposes a process-wide `env` configuration object. Its cache

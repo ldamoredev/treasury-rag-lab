@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 
-import { HttpTreasuryRagGateway } from "./core/infrastructure/http/http-treasury-rag-gateway";
-import { ChunkingLabPresenter } from "./presenters/chunking-lab-presenter";
-import { GroundedAnswerLabPresenter } from "./presenters/grounded-answer-lab-presenter";
-import { SemanticSearchLabPresenter } from "./presenters/semantic-search-lab-presenter";
+import { HttpTreasuryRagGateway } from "./core/infrastructure/http/HttpTreasuryRagGateway";
+import { ChunkingLabPresenter } from "./presenters/ChunkingLabPresenter";
+import { GroundedAnswerLabPresenter } from "./presenters/GroundedAnswerLabPresenter";
+import { SemanticSearchLabPresenter } from "./presenters/SemanticSearchLabPresenter";
 import { ChunkingLab } from "./ui/ChunkingLab";
 import { GroundedAnswerLab } from "./ui/GroundedAnswerLab";
 import { SearchLab } from "./ui/SearchLab";
-import { usePresenter } from "./ui/use-presenter";
+import { usePresenter } from "./ui/usePresenter";
 
 type LabMode = "chunking" | "search" | "answer";
 

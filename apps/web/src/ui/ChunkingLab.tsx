@@ -1,7 +1,7 @@
 import type {
   ChunkingLabPresenter,
   ChunkingLabViewModel,
-} from "../presenters/chunking-lab-presenter";
+} from "../presenters/ChunkingLabPresenter";
 
 type ChunkingLabProps = {
   presenter: ChunkingLabPresenter;

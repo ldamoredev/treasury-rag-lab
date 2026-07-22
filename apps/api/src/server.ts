@@ -1,7 +1,7 @@
 import { loadEnvFile } from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { createProductionApp } from "./composition/create-production-app.js";
+import { createProductionApp } from "./composition/createProductionApp.js";
 
 try {
   loadEnvFile(fileURLToPath(new URL("../../../.env", import.meta.url)));

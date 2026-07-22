@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type {
   GroundedAnswerLabPresenter,
   GroundedAnswerLabViewModel,
-} from "../presenters/grounded-answer-lab-presenter";
+} from "../presenters/GroundedAnswerLabPresenter";
 
 type GroundedAnswerLabProps = {
   presenter: GroundedAnswerLabPresenter;
