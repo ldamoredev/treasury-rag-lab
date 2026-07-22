@@ -75,6 +75,27 @@ ANTHROPIC_MODEL=claude-haiku-4-5
 The Anthropic key is read only by the Express API and is never exposed to the
 browser. The model can be changed through `ANTHROPIC_MODEL`.
 
+### Slice 4: observable runs over SSE
+
+Grounded answers can now run as a two-step asynchronous flow:
+
+```http
+POST /api/runs
+GET /api/runs/:runId/events
+```
+
+The second endpoint is a `text/event-stream` connection that emits typed,
+Zod-validated lifecycle events: run start, retrieval, generation, answer
+deltas, deterministic evaluation, completion and failures. Every event carries
+an increasing ID. Completed runs remain in memory for five minutes so an
+automatically reconnecting `EventSource` can send `Last-Event-ID` and replay
+only the missed events.
+
+The server sends heartbeat comments every 15 seconds, disables proxy buffering
+and releases the subscription and timer when the browser disconnects. The UI
+shows both the progressively decoded `answer` field and the complete event
+trace while preserving the final structured claims and citations.
+
 Optional embedding environment variable:
 
 ```bash

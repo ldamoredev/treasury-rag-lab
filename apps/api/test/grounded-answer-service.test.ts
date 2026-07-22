@@ -56,6 +56,40 @@ function searchServiceFor(response: SearchResponse): SearchService {
 }
 
 describe("grounded answer service", () => {
+  it("exposes retrieval, generation and answer deltas as progress events", async () => {
+    const chatProvider = new FakeChatProvider({
+      answer: "No. La factura permanece abierta.",
+      claims: [
+        {
+          text: "La factura permanece abierta.",
+          citationIds: [searchResponse.results[0]!.chunkId],
+        },
+      ],
+      insufficientEvidence: false,
+    });
+    const service = createGroundedAnswerService({
+      searchService: searchServiceFor(searchResponse),
+      chatProvider,
+    });
+    const events = [];
+
+    for await (const event of service.streamAnswer(request)) {
+      events.push(event);
+    }
+
+    expect(events.map((event) => event.type)).toEqual([
+      "retrieval.started",
+      "retrieval.completed",
+      "generation.started",
+      "answer.delta",
+      "answer.completed",
+    ]);
+    expect(events.find((event) => event.type === "answer.delta")).toEqual({
+      type: "answer.delta",
+      delta: "No. La factura permanece abierta.",
+    });
+  });
+
   it("retrieves evidence and returns only validated citations", async () => {
     const chatProvider = new FakeChatProvider({
       answer: "No. El saldo pendiente mantiene abierta la factura.",

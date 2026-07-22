@@ -3,7 +3,9 @@ import {
   DocumentListResponseSchema,
   GroundedAnswerRequestSchema,
   HealthResponseSchema,
+  RunRequestSchema,
   SearchRequestSchema,
+  type RunEvent,
 } from "@treasury-rag/contracts";
 import express from "express";
 
@@ -19,11 +21,15 @@ import {
   GroundingValidationError,
   type GroundedAnswerService,
 } from "./rag/grounded-answer-service.js";
+import { getProductionRunManager } from "./runs/production-run-manager.js";
+import type { RunManager, RunSubscription } from "./runs/run-manager.js";
+import { isTerminalRunEvent, serializeRunEvent } from "./runs/sse.js";
 
 export type AppDependencies = {
   documentRepository?: DocumentRepository;
   searchService?: SearchService;
   groundedAnswerService?: GroundedAnswerService;
+  runManager?: RunManager;
 };
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -34,6 +40,8 @@ export function createApp(dependencies: AppDependencies = {}) {
     dependencies.searchService ?? getProductionSearchService(documentRepository);
   const groundedAnswerService = dependencies.groundedAnswerService
     ?? getProductionGroundedAnswerService(documentRepository);
+  const runManager = dependencies.runManager
+    ?? getProductionRunManager(documentRepository);
 
   app.disable("x-powered-by");
   app.use(express.json());
@@ -150,6 +158,101 @@ export function createApp(dependencies: AppDependencies = {}) {
         },
       });
     }
+  });
+
+  app.post("/api/runs", (request, response) => {
+    const parsedRequest = RunRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      response.status(400).json({
+        error: {
+          code: "INVALID_RUN_REQUEST",
+          message: "The run request is invalid",
+          issues: parsedRequest.error.issues,
+        },
+      });
+      return;
+    }
+
+    response.status(202).json(runManager.create(parsedRequest.data));
+  });
+
+  app.get("/api/runs/:runId/events", (request, response) => {
+    const lastEventId = Number.parseInt(request.get("last-event-id") ?? "0", 10);
+    let heartbeat: ReturnType<typeof setInterval> | undefined;
+    let subscription: RunSubscription | undefined;
+    let closed = false;
+
+    function closeStream() {
+      if (closed) {
+        return;
+      }
+
+      closed = true;
+      if (heartbeat) {
+        clearInterval(heartbeat);
+      }
+      subscription?.unsubscribe();
+    }
+
+    function sendEvent(event: RunEvent) {
+      if (closed || response.writableEnded) {
+        return;
+      }
+
+      response.write(serializeRunEvent(event));
+      if (isTerminalRunEvent(event)) {
+        closeStream();
+        response.end();
+      }
+    }
+
+    subscription = runManager.subscribe(
+      request.params.runId,
+      Number.isFinite(lastEventId) && lastEventId > 0 ? lastEventId : 0,
+      sendEvent,
+    );
+
+    if (!subscription) {
+      response.status(404).json({
+        error: {
+          code: "RUN_NOT_FOUND",
+          message: `Run ${request.params.runId} was not found`,
+        },
+      });
+      return;
+    }
+
+    response.status(200);
+    response.set({
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "X-Accel-Buffering": "no",
+    });
+    response.flushHeaders();
+    response.write("retry: 2000\n\n");
+
+    for (const event of subscription.events) {
+      sendEvent(event);
+    }
+
+    if (!closed && subscription.terminal) {
+      closeStream();
+      response.end();
+      return;
+    }
+
+    if (!closed) {
+      heartbeat = setInterval(() => {
+        if (!response.writableEnded) {
+          response.write(`: heartbeat ${Date.now()}\n\n`);
+        }
+      }, 15_000);
+      heartbeat.unref();
+    }
+
+    request.on("close", closeStream);
   });
 
   return app;

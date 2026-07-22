@@ -3,7 +3,10 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app.js";
-import type { GroundedAnswerService } from "../src/rag/grounded-answer-service.js";
+import type {
+  GroundedAnswerProgressEvent,
+  GroundedAnswerService,
+} from "../src/rag/grounded-answer-service.js";
 
 const response: GroundedAnswerResponse = {
   query: "pago parcial",
@@ -51,6 +54,9 @@ const response: GroundedAnswerResponse = {
 
 const groundedAnswerService = {
   answer: async () => response,
+  async *streamAnswer(): AsyncGenerator<GroundedAnswerProgressEvent> {
+    yield { type: "answer.completed", response };
+  },
 } satisfies GroundedAnswerService;
 
 const validRequest = {

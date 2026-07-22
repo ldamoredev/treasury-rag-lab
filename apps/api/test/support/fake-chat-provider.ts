@@ -5,6 +5,7 @@ import type {
 import type {
   ChatProvider,
   GenerateGroundedAnswerInput,
+  GroundedAnswerStreamEvent,
 } from "../../src/generation/chat-provider.js";
 
 export class FakeChatProvider implements ChatProvider {
@@ -14,10 +15,11 @@ export class FakeChatProvider implements ChatProvider {
 
   constructor(private readonly answer: GroundedAnswer) {}
 
-  async generateGroundedAnswer(
+  async *streamGroundedAnswer(
     input: GenerateGroundedAnswerInput,
-  ): Promise<GroundedAnswer> {
+  ): AsyncGenerator<GroundedAnswerStreamEvent> {
     this.calls.push(input);
-    return this.answer;
+    yield { type: "answer.delta", delta: this.answer.answer };
+    yield { type: "answer.completed", answer: this.answer };
   }
 }

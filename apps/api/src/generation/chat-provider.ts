@@ -10,10 +10,19 @@ export type GenerateGroundedAnswerInput = {
   sources: SearchResult[];
 };
 
+export type GroundedAnswerStreamEvent =
+  | { type: "answer.delta"; delta: string }
+  | { type: "answer.completed"; answer: GroundedAnswer };
+
+export type GroundedAnswerStreamOptions = {
+  signal?: AbortSignal;
+};
+
 export interface ChatProvider {
   readonly id: string;
   readonly model: string;
-  generateGroundedAnswer(
+  streamGroundedAnswer(
     input: GenerateGroundedAnswerInput,
-  ): Promise<GroundedAnswer>;
+    options?: GroundedAnswerStreamOptions,
+  ): AsyncIterable<GroundedAnswerStreamEvent>;
 }
