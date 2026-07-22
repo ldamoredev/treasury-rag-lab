@@ -1,4 +1,4 @@
-import type { EmbeddingProvider } from "../../src/embeddings/embedding-provider.js";
+import type { EmbeddingProvider } from "../../src/retrieval/ports/embedding-provider.js";
 
 type FakeEmbeddingProviderOptions = {
   documents: Record<string, number[]>;

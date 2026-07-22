@@ -1,8 +1,12 @@
 import type { Document } from "@treasury-rag/contracts";
 import { describe, expect, it } from "vitest";
 
-import type { DocumentRepository } from "../src/documents/repository.js";
-import { createSearchService } from "../src/search/search-service.js";
+import { CharacterWindowChunker } from "../src/chunking/domain/character-window-chunker.js";
+import { DocumentChunker } from "../src/chunking/domain/document-chunker.js";
+import { MarkdownHeadingChunker } from "../src/chunking/domain/markdown-heading-chunker.js";
+import type { DocumentRepository } from "../src/documents/ports/document-repository.js";
+import { SemanticSearch } from "../src/retrieval/application/semantic-search.js";
+import { Sha256TextHasher } from "../src/retrieval/infrastructure/sha256-text-hasher.js";
 import { FakeEmbeddingProvider } from "./support/fake-embedding-provider.js";
 import { MemoryEmbeddingCache } from "./support/memory-embedding-cache.js";
 
@@ -50,11 +54,16 @@ function createFixture() {
     },
   });
   const cache = new MemoryEmbeddingCache();
-  const service = createSearchService({
-    documentRepository: repository,
-    embeddingProvider: provider,
-    embeddingCache: cache,
-  });
+  const service = new SemanticSearch(
+    repository,
+    new DocumentChunker([
+      new CharacterWindowChunker(),
+      new MarkdownHeadingChunker(),
+    ]),
+    provider,
+    cache,
+    new Sha256TextHasher(),
+  );
   return { service, provider };
 }
 

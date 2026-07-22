@@ -1,7 +1,16 @@
-import type { Document } from "@treasury-rag/contracts";
+import type { CharacterChunkingConfig, Document } from "@treasury-rag/contracts";
 import { describe, expect, it } from "vitest";
 
-import { chunkByCharacters } from "../src/chunking/chunk-by-characters.js";
+import { CharacterWindowChunker } from "../src/chunking/domain/character-window-chunker.js";
+
+const chunker = new CharacterWindowChunker();
+
+function chunkByCharacters(
+  document: Document,
+  config: Omit<CharacterChunkingConfig, "strategy">,
+) {
+  return chunker.chunk(document, { strategy: "characters", ...config });
+}
 
 function documentWith(content: string): Document {
   return {

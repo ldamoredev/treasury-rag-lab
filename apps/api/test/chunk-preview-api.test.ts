@@ -5,11 +5,11 @@ import {
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
-import { createApp } from "../src/app.js";
+import { createTestApp } from "./support/create-test-app.js";
 
 describe("chunk preview API", () => {
   it("lists document summaries without exposing full content", async () => {
-    const response = await request(createApp())
+    const response = await request(createTestApp())
       .get("/api/documents")
       .expect(200);
     const body = DocumentListResponseSchema.parse(response.body);
@@ -24,7 +24,7 @@ describe("chunk preview API", () => {
   });
 
   it("returns validated character chunks and observable statistics", async () => {
-    const response = await request(createApp())
+    const response = await request(createTestApp())
       .post("/api/chunks/preview")
       .send({
         documentId: "partial-payments",
@@ -43,7 +43,7 @@ describe("chunk preview API", () => {
   });
 
   it("rejects an invalid overlap", async () => {
-    const response = await request(createApp())
+    const response = await request(createTestApp())
       .post("/api/chunks/preview")
       .send({
         documentId: "partial-payments",
@@ -59,7 +59,7 @@ describe("chunk preview API", () => {
   });
 
   it("returns a stable error for an unknown document", async () => {
-    const response = await request(createApp())
+    const response = await request(createTestApp())
       .post("/api/chunks/preview")
       .send({
         documentId: "missing",

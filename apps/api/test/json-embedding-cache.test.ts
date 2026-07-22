@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { JsonEmbeddingCache } from "../src/embeddings/json-embedding-cache.js";
+import { JsonEmbeddingCache } from "../src/retrieval/infrastructure/json-embedding-cache.js";
 
 const temporaryDirectories: string[] = [];
 

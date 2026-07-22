@@ -1,7 +1,7 @@
 import { loadEnvFile } from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { createApp } from "./app.js";
+import { createProductionApp } from "./composition/create-production-app.js";
 
 try {
   loadEnvFile(fileURLToPath(new URL("../../../.env", import.meta.url)));
@@ -16,7 +16,7 @@ try {
 }
 
 const port = Number.parseInt(process.env.PORT ?? "4000", 10);
-const app = createApp();
+const app = createProductionApp();
 
 app.listen(port, () => {
   console.log(`Treasury RAG API listening on http://localhost:${port}`);

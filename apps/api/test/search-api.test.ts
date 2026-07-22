@@ -1,9 +1,9 @@
 import type { SearchResponse } from "@treasury-rag/contracts";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createApp } from "../src/app.js";
-import type { SearchService } from "../src/search/search-service.js";
+import type { PolicySearch } from "../src/retrieval/ports/policy-search.js";
+import { createTestApp } from "./support/create-test-app.js";
 
 const response: SearchResponse = {
   query: "pago parcial",
@@ -22,11 +22,11 @@ const response: SearchResponse = {
 
 const searchService = {
   search: async () => response,
-} satisfies SearchService;
+} satisfies PolicySearch;
 
 describe("POST /api/search", () => {
   it("validates the request and returns the search response", async () => {
-    const result = await request(createApp({ searchService }))
+    const result = await request(createTestApp({ policySearch: searchService }))
       .post("/api/search")
       .send({
         query: "pago parcial",
@@ -48,7 +48,7 @@ describe("POST /api/search", () => {
   });
 
   it("rejects invalid thresholds before calling the service", async () => {
-    const result = await request(createApp({ searchService }))
+    const result = await request(createTestApp({ policySearch: searchService }))
       .post("/api/search")
       .send({
         query: "pago parcial",
@@ -67,5 +67,37 @@ describe("POST /api/search", () => {
       .expect(400);
 
     expect(result.body.error.code).toBe("INVALID_SEARCH_REQUEST");
+  });
+
+  it("does not expose provider failures to clients", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failingSearch: PolicySearch = {
+      search: async () => {
+        throw new Error("secret model path and provider details");
+      },
+    };
+
+    const result = await request(createTestApp({ policySearch: failingSearch }))
+      .post("/api/search")
+      .send({
+        query: "pago parcial",
+        tenant: "acme",
+        config: {
+          chunking: { strategy: "characters", chunkSize: 300, overlap: 80 },
+          topK: 5,
+          threshold: 0.7,
+          tenantFilterEnabled: true,
+        },
+      })
+      .expect(503);
+
+    expect(result.body).toEqual({
+      error: {
+        code: "SEMANTIC_SEARCH_UNAVAILABLE",
+        message: "Semantic search is unavailable",
+      },
+    });
+    expect(JSON.stringify(result.body)).not.toContain("secret model path");
+    consoleError.mockRestore();
   });
 });

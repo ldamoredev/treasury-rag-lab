@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { JsonAnswerDeltaExtractor } from "../src/generation/json-answer-delta-extractor.js";
+import { JsonAnswerDeltaExtractor } from "../src/grounding/infrastructure/json-answer-delta-extractor.js";
 
 describe("JsonAnswerDeltaExtractor", () => {
   it("extracts only the answer field across arbitrary stream boundaries", () => {

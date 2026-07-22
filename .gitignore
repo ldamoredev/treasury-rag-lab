@@ -10,3 +10,4 @@ apps/api/data/index/embeddings.json
 apps/api/data/index/*.tmp
 apps/api/data/model-cache/
 .pnpm-store
+*.tsbuildinfo

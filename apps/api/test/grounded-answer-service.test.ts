@@ -4,11 +4,10 @@ import type {
 } from "@treasury-rag/contracts";
 import { describe, expect, it } from "vitest";
 
-import {
-  createGroundedAnswerService,
-  GroundingValidationError,
-} from "../src/rag/grounded-answer-service.js";
-import type { SearchService } from "../src/search/search-service.js";
+import { GenerateGroundedAnswer } from "../src/grounding/application/generate-grounded-answer.js";
+import { CitationValidator } from "../src/grounding/domain/citation-validator.js";
+import { GroundingValidationError } from "../src/grounding/domain/grounding-validation-error.js";
+import type { PolicySearch } from "../src/retrieval/ports/policy-search.js";
 import { FakeChatProvider } from "./support/fake-chat-provider.js";
 
 const request: GroundedAnswerRequest = {
@@ -51,7 +50,7 @@ const searchResponse: SearchResponse = {
   },
 };
 
-function searchServiceFor(response: SearchResponse): SearchService {
+function searchServiceFor(response: SearchResponse): PolicySearch {
   return { search: async () => response };
 }
 
@@ -67,10 +66,11 @@ describe("grounded answer service", () => {
       ],
       insufficientEvidence: false,
     });
-    const service = createGroundedAnswerService({
-      searchService: searchServiceFor(searchResponse),
+    const service = new GenerateGroundedAnswer(
+      searchServiceFor(searchResponse),
       chatProvider,
-    });
+      new CitationValidator(),
+    );
     const events = [];
 
     for await (const event of service.streamAnswer(request)) {
@@ -101,10 +101,11 @@ describe("grounded answer service", () => {
       ],
       insufficientEvidence: false,
     });
-    const service = createGroundedAnswerService({
-      searchService: searchServiceFor(searchResponse),
+    const service = new GenerateGroundedAnswer(
+      searchServiceFor(searchResponse),
       chatProvider,
-    });
+      new CitationValidator(),
+    );
 
     const response = await service.answer(request);
 
@@ -128,14 +129,15 @@ describe("grounded answer service", () => {
       claims: [],
       insufficientEvidence: true,
     });
-    const service = createGroundedAnswerService({
-      searchService: searchServiceFor({
+    const service = new GenerateGroundedAnswer(
+      searchServiceFor({
         ...searchResponse,
         results: [],
         stats: { ...searchResponse.stats, returnedChunks: 0 },
       }),
       chatProvider,
-    });
+      new CitationValidator(),
+    );
 
     const response = await service.answer(request);
 
@@ -158,10 +160,11 @@ describe("grounded answer service", () => {
       ],
       insufficientEvidence: false,
     });
-    const service = createGroundedAnswerService({
-      searchService: searchServiceFor(searchResponse),
+    const service = new GenerateGroundedAnswer(
+      searchServiceFor(searchResponse),
       chatProvider,
-    });
+      new CitationValidator(),
+    );
 
     await expect(service.answer(request)).rejects.toBeInstanceOf(
       GroundingValidationError,
@@ -182,13 +185,14 @@ describe("grounded answer service", () => {
       ],
       insufficientEvidence: false,
     });
-    const service = createGroundedAnswerService({
-      searchService: searchServiceFor({
+    const service = new GenerateGroundedAnswer(
+      searchServiceFor({
         ...searchResponse,
         results: [leakedSource],
       }),
       chatProvider,
-    });
+      new CitationValidator(),
+    );
 
     await expect(service.answer(request)).rejects.toThrow(
       "from tenant boreal",

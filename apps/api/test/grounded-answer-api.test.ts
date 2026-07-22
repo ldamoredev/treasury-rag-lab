@@ -1,12 +1,13 @@
 import type { GroundedAnswerResponse } from "@treasury-rag/contracts";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createApp } from "../src/app.js";
+import { GroundingValidationError } from "../src/grounding/domain/grounding-validation-error.js";
 import type {
   GroundedAnswerProgressEvent,
-  GroundedAnswerService,
-} from "../src/rag/grounded-answer-service.js";
+  GroundedAnswerGenerator,
+} from "../src/grounding/ports/grounded-answer-generator.js";
+import { createTestApp } from "./support/create-test-app.js";
 
 const response: GroundedAnswerResponse = {
   query: "pago parcial",
@@ -57,7 +58,7 @@ const groundedAnswerService = {
   async *streamAnswer(): AsyncGenerator<GroundedAnswerProgressEvent> {
     yield { type: "answer.completed", response };
   },
-} satisfies GroundedAnswerService;
+} satisfies GroundedAnswerGenerator;
 
 const validRequest = {
   query: "pago parcial",
@@ -76,7 +77,7 @@ const validRequest = {
 
 describe("POST /api/answer", () => {
   it("validates the request and returns the grounded response", async () => {
-    const result = await request(createApp({ groundedAnswerService }))
+    const result = await request(createTestApp({ groundedAnswerGenerator: groundedAnswerService }))
       .post("/api/answer")
       .send(validRequest)
       .expect(200);
@@ -85,7 +86,7 @@ describe("POST /api/answer", () => {
   });
 
   it("forbids disabling tenant isolation", async () => {
-    const result = await request(createApp({ groundedAnswerService }))
+    const result = await request(createTestApp({ groundedAnswerGenerator: groundedAnswerService }))
       .post("/api/answer")
       .send({
         ...validRequest,
@@ -94,5 +95,54 @@ describe("POST /api/answer", () => {
       .expect(400);
 
     expect(result.body.error.code).toBe("INVALID_GROUNDED_ANSWER_REQUEST");
+  });
+
+  it("does not expose provider failures to clients", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failingGenerator: GroundedAnswerGenerator = {
+      ...groundedAnswerService,
+      answer: async () => {
+        throw new Error("secret API key and upstream trace");
+      },
+    };
+
+    const result = await request(createTestApp({
+      groundedAnswerGenerator: failingGenerator,
+    }))
+      .post("/api/answer")
+      .send(validRequest)
+      .expect(503);
+
+    expect(result.body).toEqual({
+      error: {
+        code: "GROUNDED_ANSWER_UNAVAILABLE",
+        message: "Grounded answer generation is unavailable",
+      },
+    });
+    expect(JSON.stringify(result.body)).not.toContain("secret API key");
+    consoleError.mockRestore();
+  });
+
+  it("maps invalid citations to a controlled gateway response", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const invalidAnswer: GroundedAnswerGenerator = {
+      ...groundedAnswerService,
+      answer: async () => {
+        throw new GroundingValidationError("Answer cites an unknown source");
+      },
+    };
+
+    const result = await request(createTestApp({
+      groundedAnswerGenerator: invalidAnswer,
+    }))
+      .post("/api/answer")
+      .send(validRequest)
+      .expect(502);
+
+    expect(result.body.error).toEqual({
+      code: "INVALID_GROUNDED_ANSWER",
+      message: "Answer cites an unknown source",
+    });
+    consoleError.mockRestore();
   });
 });

@@ -6,7 +6,7 @@ import type {
   ChatProvider,
   GenerateGroundedAnswerInput,
   GroundedAnswerStreamEvent,
-} from "../../src/generation/chat-provider.js";
+} from "../../src/grounding/ports/chat-provider.js";
 
 export class FakeChatProvider implements ChatProvider {
   readonly id = "fake-chat";

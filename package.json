@@ -12,6 +12,6 @@
     "dev": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web typecheck",
-    "test": "pnpm --filter @treasury-rag/contracts build && pnpm --filter @treasury-rag/api test"
+    "test": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web test"
   }
 }

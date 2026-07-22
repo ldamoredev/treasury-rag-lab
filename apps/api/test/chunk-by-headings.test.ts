@@ -1,7 +1,16 @@
-import type { Document } from "@treasury-rag/contracts";
+import type { Document, HeadingChunkingConfig } from "@treasury-rag/contracts";
 import { describe, expect, it } from "vitest";
 
-import { chunkByHeadings } from "../src/chunking/chunk-by-headings.js";
+import { MarkdownHeadingChunker } from "../src/chunking/domain/markdown-heading-chunker.js";
+
+const chunker = new MarkdownHeadingChunker();
+
+function chunkByHeadings(
+  document: Document,
+  config: Omit<HeadingChunkingConfig, "strategy">,
+) {
+  return chunker.chunk(document, { strategy: "headings", ...config });
+}
 
 function documentWith(content: string): Document {
   return {

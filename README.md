@@ -107,6 +107,19 @@ EMBEDDING_MODEL=Xenova/multilingual-e5-small pnpm dev
 - Node.js 24 or newer
 - pnpm 11 or newer
 
+## Architecture
+
+The code is organized by capability (`documents`, `chunking`, `retrieval`,
+`grounding` and `runs`) with explicit application, domain, port and
+infrastructure boundaries where they add value. Production dependencies are
+assembled in one composition root. The frontend uses a single HTTP/SSE gateway
+and three React-free presenters, leaving React components focused on rendering
+and user intent.
+
+See [the architecture guide](docs/architecture.md) for the dependency rule,
+request flows, run lifecycle, principal objects and deliberate complexity
+limits.
+
 ## Development
 
 ```bash
@@ -128,5 +141,6 @@ pnpm build
 ## Workspace
 
 - `apps/api`: Express API
-- `apps/web`: React and Vite frontend
+- `apps/web`: React/Vite frontend with a gateway and React-free presenters
 - `packages/contracts`: runtime Zod contracts shared by both applications
+- `docs/architecture.md`: boundaries, flows and design decisions

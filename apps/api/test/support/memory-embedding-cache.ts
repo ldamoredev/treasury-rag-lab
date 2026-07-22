@@ -1,7 +1,7 @@
 import type {
   CachedEmbeddings,
   EmbeddingCache,
-} from "../../src/embeddings/embedding-cache.js";
+} from "../../src/retrieval/ports/embedding-cache.js";
 
 export class MemoryEmbeddingCache implements EmbeddingCache {
   private readonly embeddings = new Map<string, number[]>();
