@@ -1,4 +1,5 @@
 import type {
+  ChunkingConfig,
   GroundedAnswerResponse,
   RunEvent,
   RunEventType,
@@ -14,6 +15,29 @@ import {
   errorMessage,
   isAbortError,
 } from "./presentationFormat";
+
+type ChunkingStrategy = ChunkingConfig["strategy"];
+type RetrievalProgress = Extract<
+  RunEvent,
+  { type: "retrieval.completed" }
+>["data"];
+type RunEvaluation = Extract<
+  RunEvent,
+  { type: "evaluation.completed" }
+>["data"];
+
+export type InspectorTab =
+  | "retrieval"
+  | "context"
+  | "trace"
+  | "metrics"
+  | "settings";
+
+export type InspectorTabVM = {
+  id: InspectorTab;
+  label: string;
+  badge: string | undefined;
+};
 
 const EVENT_LABELS: Record<RunEventType, string> = {
   "run.started": "Run iniciado",
@@ -55,6 +79,10 @@ export type GroundedSourceVM = {
 export type GroundedAnswerLabViewModel = {
   query: string;
   tenant: Tenant;
+  chunkingStrategy: ChunkingStrategy;
+  chunkSize: number;
+  overlap: number;
+  maxChunkSize: number;
   topK: number;
   threshold: number;
   thresholdLabel: string;
@@ -62,7 +90,13 @@ export type GroundedAnswerLabViewModel = {
   error: string | undefined;
   currentStage: string;
   streamedAnswer: string;
+  submittedQuestion: {
+    text: string;
+    tenant: Tenant;
+  } | undefined;
   responseTitle: string;
+  activeInspectorTab: InspectorTab;
+  inspectorTabs: InspectorTabVM[];
   trace: RunTraceVM[];
   answer: {
     text: string;
@@ -76,6 +110,22 @@ export type GroundedAnswerLabViewModel = {
     generationDuration: string;
     model: string;
   } | undefined;
+  retrieval: {
+    candidateChunks: number;
+    returnedChunks: number;
+    cache: string;
+    duration: string;
+    provider: string;
+    model: string;
+    dimensions: string;
+    contextCharacters: number;
+  } | undefined;
+  evaluation: RunEvaluation | undefined;
+  runSummary: {
+    eventCount: number;
+    deltaCount: number;
+    duration: string;
+  } | undefined;
   claims: GroundedClaimVM[];
   sources: GroundedSourceVM[];
 };
@@ -83,11 +133,19 @@ export type GroundedAnswerLabViewModel = {
 export class GroundedAnswerLabPresenter {
   private query = "¿Un pago parcial cancela la factura?";
   private tenant: Tenant = "acme";
+  private chunkingStrategy: ChunkingStrategy = "characters";
+  private chunkSize = 300;
+  private overlap = 80;
+  private maxChunkSize = 600;
   private topK = 5;
   private threshold = 0.7;
   private response: GroundedAnswerResponse | undefined;
   private streamedAnswer = "";
   private trace: RunEvent[] = [];
+  private submittedQuestion: { text: string; tenant: Tenant } | undefined;
+  private retrieval: RetrievalProgress | undefined;
+  private evaluation: RunEvaluation | undefined;
+  private activeInspectorTab: InspectorTab = "retrieval";
   private currentStage = "Esperando pregunta";
   private error: string | undefined;
   private isLoading = false;
@@ -139,6 +197,27 @@ export class GroundedAnswerLabPresenter {
     this.refresh();
   }
 
+  setChunkingStrategy(strategy: ChunkingStrategy): void {
+    this.chunkingStrategy = strategy;
+    this.refresh();
+  }
+
+  setChunkSize(value: number): void {
+    this.chunkSize = Math.max(1, Math.min(5_000, value));
+    this.overlap = Math.min(this.overlap, this.chunkSize - 1);
+    this.refresh();
+  }
+
+  setOverlap(value: number): void {
+    this.overlap = Math.max(0, Math.min(this.chunkSize - 1, value));
+    this.refresh();
+  }
+
+  setMaxChunkSize(value: number): void {
+    this.maxChunkSize = Math.max(1, Math.min(5_000, value));
+    this.refresh();
+  }
+
   setTopK(value: number): void {
     this.topK = Math.max(1, Math.min(20, value));
     this.refresh();
@@ -147,6 +226,13 @@ export class GroundedAnswerLabPresenter {
   setThreshold(value: number): void {
     this.threshold = Math.max(-1, Math.min(1, value));
     this.refresh();
+  }
+
+  selectInspectorTab(tab: InspectorTab): void {
+    if (this.activeInspectorTab !== tab) {
+      this.activeInspectorTab = tab;
+      this.refresh();
+    }
   }
 
   async submit(): Promise<void> {
@@ -160,6 +246,9 @@ export class GroundedAnswerLabPresenter {
     const session = this.session;
     this.request = request;
     this.response = undefined;
+    this.submittedQuestion = { text: this.query, tenant: this.tenant };
+    this.retrieval = undefined;
+    this.evaluation = undefined;
     this.streamedAnswer = "";
     this.trace = [];
     this.error = undefined;
@@ -173,11 +262,7 @@ export class GroundedAnswerLabPresenter {
           query: this.query,
           tenant: this.tenant,
           config: {
-            chunking: {
-              strategy: "characters",
-              chunkSize: 300,
-              overlap: 80,
-            },
+            chunking: this.chunkingConfig(),
             topK: this.topK,
             threshold: this.threshold,
             tenantFilterEnabled: true,
@@ -217,6 +302,7 @@ export class GroundedAnswerLabPresenter {
         this.currentStage = "Buscando evidencia…";
         break;
       case "retrieval.completed":
+        this.retrieval = event.data;
         this.currentStage = `${event.data.sources.length} chunks recuperados`;
         break;
       case "generation.started":
@@ -231,6 +317,7 @@ export class GroundedAnswerLabPresenter {
         this.streamedAnswer = event.data.answer;
         break;
       case "evaluation.completed":
+        this.evaluation = event.data;
         this.currentStage = "Evaluación determinística completa";
         break;
       case "run.completed":
@@ -269,15 +356,32 @@ export class GroundedAnswerLabPresenter {
     return this.started && this.session === session && !signal.aborted;
   }
 
+  private chunkingConfig(): ChunkingConfig {
+    return this.chunkingStrategy === "characters"
+      ? {
+          strategy: "characters",
+          chunkSize: this.chunkSize,
+          overlap: this.overlap,
+        }
+      : { strategy: "headings", maxChunkSize: this.maxChunkSize };
+  }
+
   private refresh(): void {
     this.currentModel = this.buildModel();
     this.onChange();
   }
 
   private buildModel(): GroundedAnswerLabViewModel {
+    const sources = this.response?.sources ?? this.retrieval?.sources ?? [];
+    const retrieval = this.response?.retrieval ?? this.retrieval?.stats;
+
     return {
       query: this.query,
       tenant: this.tenant,
+      chunkingStrategy: this.chunkingStrategy,
+      chunkSize: this.chunkSize,
+      overlap: this.overlap,
+      maxChunkSize: this.maxChunkSize,
       topK: this.topK,
       threshold: this.threshold,
       thresholdLabel: this.threshold.toFixed(2),
@@ -285,9 +389,18 @@ export class GroundedAnswerLabPresenter {
       error: this.error,
       currentStage: this.currentStage,
       streamedAnswer: this.streamedAnswer,
+      submittedQuestion: this.submittedQuestion,
       responseTitle: this.response
         ? `Respuesta para ${this.response.tenant}`
         : "Preguntale al corpus",
+      activeInspectorTab: this.activeInspectorTab,
+      inspectorTabs: [
+        { id: "retrieval", label: "Retrieval", badge: sources.length > 0 ? String(sources.length) : undefined },
+        { id: "context", label: "Context", badge: sources.length > 0 ? String(sources.length) : undefined },
+        { id: "trace", label: "Trace", badge: this.trace.length > 0 ? String(this.trace.length) : undefined },
+        { id: "metrics", label: "Metrics", badge: this.evaluation ? "✓" : undefined },
+        { id: "settings", label: "Settings", badge: undefined },
+      ],
       trace: this.trace.map((event) => ({
         id: event.id,
         number: String(event.id).padStart(2, "0"),
@@ -307,14 +420,49 @@ export class GroundedAnswerLabPresenter {
           }
         : undefined,
       stats: this.response ? this.responseStats(this.response) : undefined,
+      retrieval: retrieval
+        ? {
+            candidateChunks: retrieval.candidateChunks,
+            returnedChunks: retrieval.returnedChunks,
+            cache: `${retrieval.cacheHits} hit / ${retrieval.cacheMisses} miss`,
+            duration: `${Math.round(retrieval.durationMs)} ms`,
+            provider: retrieval.provider,
+            model: retrieval.model,
+            dimensions: `${retrieval.embeddingDimensions}d`,
+            contextCharacters: sources.reduce(
+              (total, source) => total + source.text.length,
+              0,
+            ),
+          }
+        : undefined,
+      evaluation: this.evaluation,
+      runSummary: this.trace.length > 0
+        ? {
+            eventCount: this.trace.length,
+            deltaCount: this.trace.filter((event) => event.type === "answer.delta").length,
+            duration: this.runDuration(),
+          }
+        : undefined,
       claims: this.response?.claims.map((claim, index) => ({
         number: String(index + 1).padStart(2, "0"),
         text: claim.text,
         citationIds: claim.citationIds,
       })) ?? [],
-      sources: this.response?.sources.map((source) => this.sourceVM(source))
-        ?? [],
+      sources: sources.map((source) => this.sourceVM(source)),
     };
+  }
+
+  private runDuration(): string {
+    const first = this.trace[0];
+    const last = this.trace.at(-1);
+    if (!first || !last) {
+      return "0 ms";
+    }
+    const milliseconds = Math.max(
+      0,
+      Date.parse(last.timestamp) - Date.parse(first.timestamp),
+    );
+    return `${milliseconds} ms`;
   }
 
   private responseStats(response: GroundedAnswerResponse) {

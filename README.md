@@ -96,6 +96,25 @@ and releases the subscription and timer when the browser disconnects. The UI
 shows both the progressively decoded `answer` field and the complete event
 trace while preserving the final structured claims and citations.
 
+### Slice 5: chat and evidence inspector
+
+The grounded-answer screen is now a two-column workbench. The left side keeps
+the user question, streamed answer, structured claims and clickable citations
+in one conversation. The right side explains why that answer exists through
+five focused views:
+
+- `Retrieval` shows the ranked chunks and cosine scores.
+- `Context` exposes the exact ordered text sent to the generation model.
+- `Trace` keeps every typed SSE event in arrival order.
+- `Metrics` separates retrieval statistics from deterministic guardrails.
+- `Settings` controls chunking, top-k and threshold while tenant isolation
+  remains locked on.
+
+React still only renders the ViewModel and forwards user actions. Inspector
+navigation, run configuration and SSE-derived state belong to the React-free
+`GroundedAnswerLabPresenter`, so the behavior remains unit-testable without a
+browser.
+
 Optional embedding environment variable:
 
 ```bash
