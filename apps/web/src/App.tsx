@@ -8,7 +8,10 @@ import {
 } from "@treasury-rag/contracts";
 import { useEffect, useState } from "react";
 
+import { SearchLab } from "./SearchLab";
+
 type Strategy = ChunkingConfig["strategy"];
+type LabMode = "chunking" | "search";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ocurrió un error inesperado";
@@ -48,6 +51,7 @@ function ChunkText({ chunk, previousChunk }: {
 }
 
 export function App() {
+  const [labMode, setLabMode] = useState<LabMode>("chunking");
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [documentsError, setDocumentsError] = useState<string>();
   const [selectedDocumentId, setSelectedDocumentId] = useState("");
@@ -87,7 +91,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!selectedDocumentId) {
+    if (!selectedDocumentId || labMode !== "chunking") {
       return;
     }
 
@@ -135,7 +139,7 @@ export function App() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [chunkSize, maxChunkSize, overlap, selectedDocumentId, strategy]);
+  }, [chunkSize, labMode, maxChunkSize, overlap, selectedDocumentId, strategy]);
 
   const selectedDocument = documents.find(
     (document) => document.id === selectedDocumentId,
@@ -158,13 +162,30 @@ export function App() {
           </div>
         </div>
 
+        <nav className="lab-nav" aria-label="Secciones del laboratorio">
+          <button
+            type="button"
+            className={labMode === "chunking" ? "active" : ""}
+            onClick={() => setLabMode("chunking")}
+          >
+            Chunking
+          </button>
+          <button
+            type="button"
+            className={labMode === "search" ? "active" : ""}
+            onClick={() => setLabMode("search")}
+          >
+            Semantic search
+          </button>
+        </nav>
+
         <div className={`connection ${documentsError ? "connection--error" : ""}`}>
           <span className="connection__dot" />
           {documentsError ? "API sin conexión" : documents.length > 0 ? "API conectada" : "Conectando…"}
         </div>
       </header>
 
-      <main className="workspace">
+      {labMode === "search" ? <SearchLab /> : <main className="workspace">
         <aside className="control-panel">
           <div className="section-heading">
             <span>Slice 01</span>
@@ -371,7 +392,7 @@ export function App() {
             </>
           )}
         </section>
-      </main>
+      </main>}
     </div>
   );
 }

@@ -2,14 +2,29 @@ import {
   ChunkPreviewRequestSchema,
   DocumentListResponseSchema,
   HealthResponseSchema,
+  SearchRequestSchema,
 } from "@treasury-rag/contracts";
 import express from "express";
 
 import { createChunkPreview } from "./chunking/preview.js";
-import { documentRepository } from "./documents/repository.js";
+import {
+  documentRepository as productionDocumentRepository,
+  type DocumentRepository,
+} from "./documents/repository.js";
+import { getProductionSearchService } from "./search/production-search-service.js";
+import type { SearchService } from "./search/search-service.js";
 
-export function createApp() {
+export type AppDependencies = {
+  documentRepository?: DocumentRepository;
+  searchService?: SearchService;
+};
+
+export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
+  const documentRepository =
+    dependencies.documentRepository ?? productionDocumentRepository;
+  const searchService =
+    dependencies.searchService ?? getProductionSearchService(documentRepository);
 
   app.disable("x-powered-by");
   app.use(express.json());
@@ -62,6 +77,36 @@ export function createApp() {
     response
       .status(200)
       .json(createChunkPreview(document, parsedRequest.data.config));
+  });
+
+  app.post("/api/search", async (request, response) => {
+    const parsedRequest = SearchRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      response.status(400).json({
+        error: {
+          code: "INVALID_SEARCH_REQUEST",
+          message: "The semantic search request is invalid",
+          issues: parsedRequest.error.issues,
+        },
+      });
+      return;
+    }
+
+    try {
+      response.status(200).json(await searchService.search(parsedRequest.data));
+    } catch (error) {
+      console.error("Semantic search failed", error);
+      response.status(503).json({
+        error: {
+          code: "SEMANTIC_SEARCH_UNAVAILABLE",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Semantic search is unavailable",
+        },
+      });
+    }
   });
 
   return app;

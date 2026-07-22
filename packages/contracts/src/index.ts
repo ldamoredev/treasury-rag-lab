@@ -26,3 +26,15 @@ export {
   type HeadingChunkingConfig,
   type Tenant,
 } from "./chunking.js";
+export {
+  SearchConfigSchema,
+  SearchRequestSchema,
+  SearchResponseSchema,
+  SearchResultSchema,
+  SearchStatsSchema,
+  type SearchConfig,
+  type SearchRequest,
+  type SearchResponse,
+  type SearchResult,
+  type SearchStats,
+} from "./search.js";
