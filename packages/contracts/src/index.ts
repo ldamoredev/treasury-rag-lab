@@ -38,3 +38,17 @@ export {
   type SearchResult,
   type SearchStats,
 } from "./search.js";
+export {
+  GenerationStatsSchema,
+  GroundedAnswerConfigSchema,
+  GroundedAnswerRequestSchema,
+  GroundedAnswerResponseSchema,
+  GroundedAnswerSchema,
+  GroundedClaimSchema,
+  type GenerationStats,
+  type GroundedAnswer,
+  type GroundedAnswerConfig,
+  type GroundedAnswerRequest,
+  type GroundedAnswerResponse,
+  type GroundedClaim,
+} from "./grounded-answer.js";

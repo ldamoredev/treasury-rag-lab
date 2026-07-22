@@ -44,7 +44,38 @@ API endpoint:
 
 - `POST /api/search`
 
-Optional environment variable:
+### Slice 3: grounded answers with citations
+
+The answer pipeline calls semantic search first, sends only the returned chunks
+to Claude and requires a structured response with one or more citation IDs per
+claim. The API validates the generated object with Zod and rejects every
+citation that is not present in the retrieved context.
+
+- Tenant isolation is mandatory for answer generation; only the requested
+  tenant and global documents can enter the prompt.
+- Retrieved text is explicitly marked as untrusted data so instructions inside
+  a policy cannot override the system prompt.
+- Empty retrieval returns a deterministic abstention without spending an API
+  call.
+- The UI keeps the answer, individual claims and their exact source chunks
+  visible together.
+
+API endpoint:
+
+- `POST /api/answer`
+
+Copy `.env.example` to `.env` or export the variables in your shell before
+starting the app:
+
+```bash
+ANTHROPIC_API_KEY=your_key_here
+ANTHROPIC_MODEL=claude-haiku-4-5
+```
+
+The Anthropic key is read only by the Express API and is never exposed to the
+browser. The model can be changed through `ANTHROPIC_MODEL`.
+
+Optional embedding environment variable:
 
 ```bash
 EMBEDDING_MODEL=Xenova/multilingual-e5-small pnpm dev

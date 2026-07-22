@@ -9,9 +9,10 @@ import {
 import { useEffect, useState } from "react";
 
 import { SearchLab } from "./SearchLab";
+import { GroundedAnswerLab } from "./GroundedAnswerLab";
 
 type Strategy = ChunkingConfig["strategy"];
-type LabMode = "chunking" | "search";
+type LabMode = "chunking" | "search" | "answer";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ocurrió un error inesperado";
@@ -177,6 +178,13 @@ export function App() {
           >
             Semantic search
           </button>
+          <button
+            type="button"
+            className={labMode === "answer" ? "active" : ""}
+            onClick={() => setLabMode("answer")}
+          >
+            Grounded answer
+          </button>
         </nav>
 
         <div className={`connection ${documentsError ? "connection--error" : ""}`}>
@@ -185,7 +193,9 @@ export function App() {
         </div>
       </header>
 
-      {labMode === "search" ? <SearchLab /> : <main className="workspace">
+      {labMode === "search" ? <SearchLab /> : labMode === "answer" ? (
+        <GroundedAnswerLab />
+      ) : <main className="workspace">
         <aside className="control-panel">
           <div className="section-heading">
             <span>Slice 01</span>

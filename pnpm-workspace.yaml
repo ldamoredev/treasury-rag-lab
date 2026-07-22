@@ -6,3 +6,5 @@ allowBuilds:
   onnxruntime-node: true
   protobufjs: true
   sharp: true
+minimumReleaseAgeExclude:
+  - '@anthropic-ai/sdk@0.113.0'

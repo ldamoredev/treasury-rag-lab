@@ -1,6 +1,7 @@
 import {
   ChunkPreviewRequestSchema,
   DocumentListResponseSchema,
+  GroundedAnswerRequestSchema,
   HealthResponseSchema,
   SearchRequestSchema,
 } from "@treasury-rag/contracts";
@@ -13,10 +14,16 @@ import {
 } from "./documents/repository.js";
 import { getProductionSearchService } from "./search/production-search-service.js";
 import type { SearchService } from "./search/search-service.js";
+import { getProductionGroundedAnswerService } from "./rag/production-grounded-answer-service.js";
+import {
+  GroundingValidationError,
+  type GroundedAnswerService,
+} from "./rag/grounded-answer-service.js";
 
 export type AppDependencies = {
   documentRepository?: DocumentRepository;
   searchService?: SearchService;
+  groundedAnswerService?: GroundedAnswerService;
 };
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -25,6 +32,8 @@ export function createApp(dependencies: AppDependencies = {}) {
     dependencies.documentRepository ?? productionDocumentRepository;
   const searchService =
     dependencies.searchService ?? getProductionSearchService(documentRepository);
+  const groundedAnswerService = dependencies.groundedAnswerService
+    ?? getProductionGroundedAnswerService(documentRepository);
 
   app.disable("x-powered-by");
   app.use(express.json());
@@ -104,6 +113,40 @@ export function createApp(dependencies: AppDependencies = {}) {
             error instanceof Error
               ? error.message
               : "Semantic search is unavailable",
+        },
+      });
+    }
+  });
+
+  app.post("/api/answer", async (request, response) => {
+    const parsedRequest = GroundedAnswerRequestSchema.safeParse(request.body);
+
+    if (!parsedRequest.success) {
+      response.status(400).json({
+        error: {
+          code: "INVALID_GROUNDED_ANSWER_REQUEST",
+          message: "The grounded answer request is invalid",
+          issues: parsedRequest.error.issues,
+        },
+      });
+      return;
+    }
+
+    try {
+      response
+        .status(200)
+        .json(await groundedAnswerService.answer(parsedRequest.data));
+    } catch (error) {
+      console.error("Grounded answer generation failed", error);
+      const invalidGrounding = error instanceof GroundingValidationError;
+      response.status(invalidGrounding ? 502 : 503).json({
+        error: {
+          code: invalidGrounding
+            ? "INVALID_GROUNDED_ANSWER"
+            : "GROUNDED_ANSWER_UNAVAILABLE",
+          message: error instanceof Error
+            ? error.message
+            : "Grounded answer generation is unavailable",
         },
       });
     }
