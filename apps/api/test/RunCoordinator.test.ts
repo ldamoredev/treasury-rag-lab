@@ -21,6 +21,7 @@ const request: GroundedAnswerRequest = {
     topK: 5,
     threshold: 0.7,
     tenantFilterEnabled: true,
+    latestVersionOnly: true,
   },
 };
 

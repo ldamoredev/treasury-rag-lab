@@ -7,11 +7,16 @@ import { DocumentChunker } from "../chunking/domain/DocumentChunker.js";
 import { MarkdownHeadingChunker } from "../chunking/domain/MarkdownHeadingChunker.js";
 import { ListDocuments } from "../documents/application/ListDocuments.js";
 import { FileDocumentRepository } from "../documents/infrastructure/FileDocumentRepository.js";
+import { EvalRunner } from "../evals/application/EvalRunner.js";
+import { treasuryEvalDataset } from "../evals/domain/treasuryEvalDataset.js";
+import { ListFailureLabExperiments } from "../failureLab/application/ListFailureLabExperiments.js";
+import { RunFailureLabComparison } from "../failureLab/application/RunFailureLabComparison.js";
 import { GenerateGroundedAnswer } from "../grounding/application/GenerateGroundedAnswer.js";
 import { CitationValidator } from "../grounding/domain/CitationValidator.js";
 import { AnthropicChatProvider } from "../grounding/infrastructure/AnthropicChatProvider.js";
 import { ChunkPreviewController } from "../http/controllers/ChunkPreviewController.js";
 import { DocumentsController } from "../http/controllers/DocumentsController.js";
+import { FailureLabController } from "../http/controllers/FailureLabController.js";
 import { GroundedAnswerController } from "../http/controllers/GroundedAnswerController.js";
 import { HealthController } from "../http/controllers/HealthController.js";
 import { RunsController } from "../http/controllers/RunsController.js";
@@ -62,6 +67,10 @@ export function createProductionApp() {
   const runRegistry = new InMemoryRunRegistry();
   const runExecutor = new RunExecutor(answers, runRegistry);
   const runs = new RunCoordinator(runRegistry, runExecutor);
+  const failureLabComparison = new RunFailureLabComparison(
+    new EvalRunner(search),
+    treasuryEvalDataset,
+  );
 
   return createApp({
     health: new HealthController(),
@@ -72,5 +81,9 @@ export function createProductionApp() {
     semanticSearch: new SemanticSearchController(search),
     groundedAnswer: new GroundedAnswerController(answers),
     runs: new RunsController(runs, new SseRunConnectionFactory()),
+    failureLab: new FailureLabController(
+      new ListFailureLabExperiments(),
+      failureLabComparison,
+    ),
   });
 }

@@ -18,6 +18,14 @@ const DOCUMENTS: DocumentDefinition[] = [
     filename: "partialPayments.md",
   },
   {
+    id: "partial-payments-v1",
+    title: "Política global de pagos parciales",
+    tenant: "global",
+    version: 1,
+    effectiveFrom: "2025-03-01",
+    filename: "partialPaymentsV1.md",
+  },
+  {
     id: "acme-approvals",
     title: "Aprobaciones de tesorería — Acme",
     tenant: "acme",
@@ -32,6 +40,14 @@ const DOCUMENTS: DocumentDefinition[] = [
     version: 1,
     effectiveFrom: "2026-02-01",
     filename: "borealApprovals.md",
+  },
+  {
+    id: "acme-bank-notice",
+    title: "Aviso bancario de conciliación — Acme",
+    tenant: "acme",
+    version: 1,
+    effectiveFrom: "2026-03-10",
+    filename: "acmeBankNotice.md",
   },
 ];
 

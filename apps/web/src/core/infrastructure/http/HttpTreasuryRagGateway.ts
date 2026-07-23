@@ -1,11 +1,14 @@
 import {
   ChunkPreviewResponseSchema,
   DocumentListResponseSchema,
+  FailureLabComparisonResponseSchema,
+  FailureLabExperimentListResponseSchema,
   GroundedAnswerResponseSchema,
   RunCreatedResponseSchema,
   RunEventSchema,
   SearchResponseSchema,
   type ChunkPreviewRequest,
+  type FailureLabComparisonRequest,
   type GroundedAnswerRequest,
   type RunEventType,
   type SearchRequest,
@@ -174,6 +177,26 @@ export class HttpTreasuryRagGateway implements TreasuryRagGateway {
 
     const source = this.eventSourceFactory(`/api/runs/${runId}/events`);
     return new EventSourceRunStream(source, observer, options.signal);
+  }
+
+  listFailureLabExperiments(options: GatewayRequestOptions = {}) {
+    return this.request(
+      "/api/failure-lab/experiments",
+      { method: "GET", ...signalOption(options.signal) },
+      FailureLabExperimentListResponseSchema,
+    );
+  }
+
+  compareFailureLabExperiment(
+    request: FailureLabComparisonRequest,
+    options: GatewayRequestOptions = {},
+  ) {
+    return this.post(
+      "/api/failure-lab/compare",
+      request,
+      FailureLabComparisonResponseSchema,
+      options,
+    );
   }
 
   private post<Output>(

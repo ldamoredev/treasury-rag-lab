@@ -8,7 +8,10 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "tsx src/evals/cli/runEvals.ts",
+    "eval:live": "tsx src/evals/cli/runEvals.ts --live",
+    "eval:live:grader": "tsx src/evals/cli/runEvals.ts --live --grader"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.113.0",

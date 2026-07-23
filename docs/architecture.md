@@ -30,6 +30,15 @@ apps/api/src
 │   ├── application/       run coordination and execution
 │   ├── ports/             lifecycle and registry contracts
 │   └── infrastructure/    in-memory run registry with terminal TTL
+├── evals/
+│   ├── domain/            dataset, metrics, grading prompt and reports
+│   ├── application/       per-case runner and aggregation orchestration
+│   ├── ports/             optional model-grader contract
+│   ├── infrastructure/    scripted executor and Anthropic grader
+│   └── cli/               free and explicitly paid evaluation entrypoints
+├── failureLab/
+│   ├── domain/            single-variable experiments and config checks
+│   └── application/       baseline-versus-variant comparison
 ├── http/
 │   ├── controllers/       input validation and use-case invocation
 │   ├── errors/            centralized HTTP error mapping
@@ -67,6 +76,8 @@ React / HTTP → application → domain and ports
   Transformers.js, filesystem or SSE details.
 - Infrastructure implements small ports owned by the capability that needs
   them.
+- `EvalRunner` depends on the existing search and answer ports. The optional
+  Anthropic grader stays behind `EvalGrader` and is absent from free runs.
 - HTTP and React translate external events into application calls; they do not
   implement retrieval or grounding rules.
 - `packages/contracts` remains the source of truth for HTTP payloads and SSE
@@ -133,6 +144,50 @@ The run aggregate and connection are classes because they protect mutable
 state and resource lifecycle. SSE serialization and terminal-event predicates
 remain pure functions.
 
+## Evaluation pipeline
+
+1. `treasuryEvalDataset` validates the ten versioned cases with Zod at module
+   load time. Evidence expectations use document IDs plus text fragments, not
+   chunk IDs whose offsets change with configuration.
+2. `EvalRunner` executes each case independently through `PolicySearch`.
+3. Retrieval metrics are calculated directly from the ranked sources.
+4. In grounded mode, a `GroundedAnswerGenerator` supplies an answer and enables
+   citation, exact-value and abstention checks.
+5. An optional `EvalGrader` may score faithfulness, relevance and correctness.
+   A grader failure marks grading unavailable without losing deterministic
+   results.
+6. `aggregateMetrics` keeps passed, failed and not-applicable counts explicit;
+   only applicable results enter a rate denominator.
+7. The CLI prints a compact human summary, persists a machine-readable JSON
+   report and returns a failing exit status for case errors or failed metrics.
+
+The default CLI wires local E5 retrieval to `ScriptedAnswerGenerator`. It is a
+deterministic evaluator smoke test whose answers come from dataset references;
+it must not be interpreted as a measurement of model generation. The live
+entrypoints replace it with Anthropic generation and, only when separately
+requested, `AnthropicEvalGrader`. Evaluations reveal regressions and trade-offs,
+but neither deterministic checks nor an LLM grader prove correctness.
+
+## Failure Lab comparison
+
+1. `ListFailureLabExperiments` exposes six predefined experiment contracts.
+2. `compareExperimentConfigs` rejects zero- or multi-variable comparisons.
+3. `RunFailureLabComparison` runs the same dataset in retrieval-only mode for
+   the baseline and variant, so the UI never triggers paid generation.
+4. Aggregate rates become metric deltas and per-case outcomes become improved,
+   degraded or unchanged groups.
+5. The explanation identifies whether the variant caused a regression, the
+   baseline was recovered by the variant, or the current dataset did not
+   discriminate the change.
+6. `FailureLabController` exposes the list and comparison endpoints through
+   shared contracts; `FailureLabPresenter` owns loading, cancellation,
+   selection and display formatting without depending on React.
+
+The layer attribution is deliberate. Tenant and version failures are fixed in
+document filtering; chunk-boundary failures in chunking; recall-window and
+threshold failures in retrieval. Editing a prompt cannot repair evidence that
+never entered the context.
+
 ## Presenters and React
 
 `HttpTreasuryRagGateway` is the only frontend object that calls `fetch` or
@@ -145,6 +200,8 @@ Each lab has a React-free presenter with its own state, actions and lifecycle:
 - `SemanticSearchLabPresenter` runs searches and formats ranking statistics.
 - `GroundedAnswerLabPresenter` starts runs, reduces SSE events into a trace and
   closes requests or streams when stopped.
+- `FailureLabPresenter` loads controlled experiments and compares one selected
+  baseline/variant pair.
 
 `usePresenter` subscribes a presenter to React and pairs `start()` with
 `stop()`. Presenter start/stop operations are idempotent, so React StrictMode
@@ -165,6 +222,8 @@ rules.
 | `Run` | Own ordered event history, state and subscriptions. |
 | `RunExecutor` | Translate answer progress into the run event protocol. |
 | `SseRunConnection` | Own the lifetime of one HTTP event stream. |
+| `EvalRunner` | Execute cases independently and assemble deterministic and optional grading signals. |
+| `RunFailureLabComparison` | Compare one-variable retrieval configurations over the same dataset. |
 | `HttpTreasuryRagGateway` | Own browser transport and contract parsing. |
 | Lab presenters | Own UI state and lifecycle without depending on React. |
 
@@ -173,8 +232,11 @@ rules.
 - `cosineSimilarity`: vector mathematics.
 - `rankEmbeddedChunks`: deterministic score/filter/sort/map pipeline.
 - `selectDocuments`: tenant-selection policy without state.
+- `selectLatestDocumentVersions`: current-policy selection by family.
 - `validateEmbeddingBatch`: deterministic provider-output validation.
 - grounding evaluation: deterministic checks over a completed answer.
+- eval metric calculation and aggregation: deterministic dataset checks.
+- failure-lab config and case comparison: controlled experiment analysis.
 - SSE serialization and terminal predicate: transport transformations.
 - presentation formatting: deterministic labels and display values.
 

@@ -266,6 +266,7 @@ export class GroundedAnswerLabPresenter {
             topK: this.topK,
             threshold: this.threshold,
             tenantFilterEnabled: true,
+            latestVersionOnly: true,
           },
         },
         {

@@ -14,11 +14,13 @@ describe("chunk preview API", () => {
       .expect(200);
     const body = DocumentListResponseSchema.parse(response.body);
 
-    expect(body.documents).toHaveLength(3);
+    expect(body.documents).toHaveLength(5);
     expect(body.documents.map((document) => document.tenant)).toEqual([
+      "global",
       "global",
       "acme",
       "boreal",
+      "acme",
     ]);
     expect(response.body.documents[0]).not.toHaveProperty("content");
   });

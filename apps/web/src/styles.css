@@ -756,3 +756,34 @@ mark { margin: 0 -1px; padding: 2px 1px; color: #efe6ba; background: rgba(220, 1
   .trace-event { grid-template-columns: 26px minmax(0, 1fr); }
   .trace-event code { display: none; }
 }
+
+.experiment-description { margin: 0 0 24px; color: #8d9691; font-size: 0.8rem; line-height: 1.65; }
+
+.config-table, .metric-table { width: 100%; border-collapse: collapse; }
+.config-table { margin-top: 6px; }
+.config-table th, .config-table td,
+.metric-table th, .metric-table td { padding: 9px 10px; border-bottom: 1px solid #272e2b; text-align: left; font-size: 0.72rem; }
+.config-table th, .metric-table th { color: #68716d; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.config-table td { color: #b7c0ba; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.68rem; }
+.config-table td:first-child, .metric-table td:first-child { color: #dfe5e1; font-family: inherit; font-size: 0.72rem; }
+.config-table__changed td { color: #c7d69f; background: rgba(186, 214, 107, 0.05); }
+.config-table__changed td:first-child { color: #bad66b; font-weight: 750; }
+
+.metric-table { margin-bottom: 18px; }
+.metric-table td { color: #b7c0ba; }
+.delta { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.68rem; font-weight: 700; }
+.delta--good { color: #9ecb6d; }
+.delta--bad { color: #e36d5d; }
+.delta--neutral { color: #68716d; }
+
+.case-group { margin-top: 26px; }
+.case-group__title { margin: 0 0 12px; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.case-group__title--bad { color: #e36d5d; }
+.case-group__title--good { color: #9ecb6d; }
+.status-change { color: #c7d69f; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.64rem; white-space: nowrap; }
+
+.failure-explanation { margin-top: 30px; padding: 20px; border: 1px solid #2b332f; border-radius: 10px; background: #131917; }
+.failure-explanation h3 { margin: 0 0 6px; color: #bad66b; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.failure-explanation p { margin: 0 0 18px; color: #9ea7a2; font-size: 0.78rem; line-height: 1.6; }
+.failure-explanation p:last-child { margin-bottom: 0; }
+.failure-explanation strong { color: #dfe5e1; }

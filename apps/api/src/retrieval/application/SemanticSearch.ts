@@ -8,6 +8,7 @@ import type { DocumentChunker } from "../../chunking/domain/DocumentChunker.js";
 import type { DocumentRepository } from "../../documents/ports/DocumentRepository.js";
 import { rankEmbeddedChunks } from "../domain/rankEmbeddedChunks.js";
 import { selectDocuments } from "../domain/selectDocuments.js";
+import { selectLatestDocumentVersions } from "../domain/selectLatestDocumentVersions.js";
 import type { EmbeddingCache } from "../ports/EmbeddingCache.js";
 import type { EmbeddingProvider } from "../ports/EmbeddingProvider.js";
 import type { PolicySearch } from "../ports/PolicySearch.js";
@@ -25,10 +26,13 @@ export class SemanticSearch implements PolicySearch {
 
   async search(request: SearchRequest): Promise<SearchResponse> {
     const startedAt = performance.now();
-    const documents = selectDocuments(this.documents.list(), {
+    const tenantDocuments = selectDocuments(this.documents.list(), {
       tenant: request.tenant,
       tenantFilterEnabled: request.config.tenantFilterEnabled,
     });
+    const documents = request.config.latestVersionOnly
+      ? selectLatestDocumentVersions(tenantDocuments)
+      : tenantDocuments;
     const chunks = documents.flatMap((document) =>
       this.chunker.chunk(document, request.config.chunking)
     );

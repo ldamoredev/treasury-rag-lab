@@ -121,6 +121,70 @@ Optional embedding environment variable:
 EMBEDDING_MODEL=Xenova/multilingual-e5-small pnpm dev
 ```
 
+### Slice 6: reproducible evals
+
+The evaluation suite contains exactly ten versioned treasury cases. They cover
+single- and multi-chunk answers, paraphrases, tenant-specific rules, stale
+policies, abstention, exact amounts and dates, prompt injection and an
+ambiguous conflict. Expected evidence is anchored to document IDs and stable
+text fragments instead of generated chunk IDs, so changing chunking does not
+silently rewrite the ground truth.
+
+`pnpm eval` is deterministic and free: it runs the real local E5 retrieval and
+then uses a scripted answer executor derived from each case's reference answer.
+That mode validates retrieval, metric computation, aggregation, reporting and
+failure handling. It does **not** measure Claude's generative quality; exact
+value and abstention results are expected to be strong because the executor is
+an oracle fixture.
+
+The report separates these signals for every case:
+
+- retrieval recall@k over the expected evidence fragments;
+- citation IDs that exist in the retrieved context;
+- leakage from a tenant that was not allowed;
+- selection of the current policy version;
+- verbatim preservation of required amounts and dates;
+- correct answer-versus-abstention behavior.
+
+Every metric is `passed`, `failed` or `notApplicable`. Aggregate rates use only
+`passed + failed` as their denominator; `notApplicable` remains visible without
+being counted as a failure. One case error is recorded and does not abort the
+remaining dataset. Reports are written as formatted JSON under
+`apps/api/eval-reports/`, which is ignored by Git.
+
+`pnpm eval:live` replaces the scripted executor with the real Anthropic answer
+pipeline. `pnpm eval:live:grader` additionally asks an Anthropic grader for
+claim faithfulness, relevance and correctness. Both commands are explicit,
+paid opt-ins and require `ANTHROPIC_API_KEY`; tests and `pnpm eval` never make
+those calls. A model grader is another noisy signal, not an objective judge.
+
+### Slice 7: Failure Lab
+
+Failure Lab runs the eval dataset twice with local retrieval: a baseline and a
+variant that changes exactly one variable. Its API and UI show the two configs,
+metric deltas, improved and degraded cases, the responsible layer and a
+suggested correction.
+
+Predefined experiments compare:
+
+- chunk size 300 versus 900;
+- overlap 0 versus 120;
+- top-k 2 versus 8;
+- similarity threshold 0.40 versus 0.80;
+- tenant filtering on versus off;
+- current-version filtering on versus off.
+
+The comparison is retrieval-only and never calls Anthropic. Its explanations
+follow the observed result: the failure may be in the variant, or in a weak
+baseline that the variant recovers. Chunk size and top-k are trade-offs rather
+than universal constants; recall measures evidence coverage but cannot by
+itself prove that the final prompt is free of distracting context.
+
+API endpoints:
+
+- `GET /api/failure-lab/experiments`
+- `POST /api/failure-lab/compare`
+
 ## Requirements
 
 - Node.js 24 or newer
@@ -129,11 +193,11 @@ EMBEDDING_MODEL=Xenova/multilingual-e5-small pnpm dev
 ## Architecture
 
 The code is organized by capability (`documents`, `chunking`, `retrieval`,
-`grounding` and `runs`) with explicit application, domain, port and
-infrastructure boundaries where they add value. Production dependencies are
-assembled in one composition root. The frontend uses a single HTTP/SSE gateway
-and three React-free presenters, leaving React components focused on rendering
-and user intent.
+`grounding`, `runs`, `evals` and `failureLab`) with explicit application,
+domain, port and infrastructure boundaries where they add value. Production
+dependencies are assembled in one composition root. The frontend uses a single
+HTTP/SSE gateway and React-free presenters, leaving React components focused on
+rendering and user intent.
 
 See [the architecture guide](docs/architecture.md) for the dependency rule,
 request flows, run lifecycle, principal objects and deliberate complexity
@@ -155,6 +219,14 @@ The web application runs at <http://localhost:5173>. Vite proxies `/health` and
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm eval
+```
+
+Optional paid verification:
+
+```bash
+pnpm eval:live
+pnpm eval:live:grader
 ```
 
 ## Workspace

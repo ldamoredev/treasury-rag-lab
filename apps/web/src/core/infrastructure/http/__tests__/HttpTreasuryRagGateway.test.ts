@@ -1,7 +1,10 @@
 import { RunEventSchema } from "@treasury-rag/contracts";
 import { describe, expect, it, vi } from "vitest";
 
-import { HttpTreasuryRagGateway } from "../HttpTreasuryRagGateway";
+import {
+  HttpTreasuryRagGateway,
+  TreasuryRagGatewayError,
+} from "../HttpTreasuryRagGateway";
 
 class FakeEventSource {
   readonly listeners = new Map<string, (event: Event) => void>();
@@ -34,6 +37,7 @@ const runRequest = {
     topK: 5,
     threshold: 0.7,
     tenantFilterEnabled: true as const,
+    latestVersionOnly: true,
   },
 };
 
@@ -81,5 +85,144 @@ describe("HttpTreasuryRagGateway", () => {
     expect(onEvent).toHaveBeenCalledWith(event);
     expect(eventSource.close).toHaveBeenCalledTimes(1);
     expect(eventSource.listeners.size).toBe(0);
+  });
+
+  it("lists and parses failure lab experiments", async () => {
+    const experiment = {
+      id: "tenant-filter-on-vs-off",
+      name: "Tenant filter: on vs off",
+      description: "Sin filtro hay fuga entre tenants.",
+      variable: "tenantFilter",
+      baseline: {
+        chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+        topK: 5,
+        threshold: 0.7,
+        tenantFilterEnabled: true,
+        latestVersionOnly: true,
+      },
+      variant: {
+        chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+        topK: 5,
+        threshold: 0.7,
+        tenantFilterEnabled: false,
+        latestVersionOnly: true,
+      },
+      responsibleLayer: "filtering",
+      suggestedFix: "Reactivar el filtro.",
+      learning: "La fuga ocurre en retrieval.",
+    };
+    const fetcher = vi.fn(async () => new Response(
+      JSON.stringify({ experiments: [experiment] }),
+      { status: 200 },
+    ));
+    const gateway = new HttpTreasuryRagGateway({ fetcher });
+
+    const result = await gateway.listFailureLabExperiments();
+
+    expect(result.experiments[0]?.id).toBe("tenant-filter-on-vs-off");
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/failure-lab/experiments",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("posts a failure lab comparison and parses the report", async () => {
+    const comparison = {
+      experiment: {
+        id: "tenant-filter-on-vs-off",
+        name: "Tenant filter: on vs off",
+        description: "Sin filtro hay fuga entre tenants.",
+        variable: "tenantFilter",
+        baseline: {
+          chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+          topK: 5,
+          threshold: 0.7,
+          tenantFilterEnabled: true,
+          latestVersionOnly: true,
+        },
+        variant: {
+          chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+          topK: 5,
+          threshold: 0.7,
+          tenantFilterEnabled: false,
+          latestVersionOnly: true,
+        },
+        responsibleLayer: "filtering",
+        suggestedFix: "Reactivar el filtro.",
+        learning: "La fuga ocurre en retrieval.",
+      },
+      mode: "retrieval",
+      generatedAt: "2026-07-22T12:00:00.000Z",
+      metricDeltas: [{
+        metric: "tenantLeakage",
+        label: "Fuga entre tenants",
+        baseline: { passed: 10, failed: 0, notApplicable: 0, rate: 1 },
+        variant: { passed: 6, failed: 4, notApplicable: 0, rate: 0.6 },
+        delta: -0.4,
+      }],
+      improvedCases: [],
+      degradedCases: [{
+        caseId: "acme-exclusive-rule",
+        name: "Regla exclusiva de Acme",
+        baselineStatus: "passed",
+        variantStatus: "failed",
+        detail: "tenantLeakage: passed → failed",
+      }],
+      unchangedCases: 9,
+      observedFailure: "La variante degradó 1 caso(s).",
+      responsibleLayer: "filtering",
+      suggestedFix: "Reactivar el filtro.",
+    };
+    const fetcher = vi.fn(async () => new Response(
+      JSON.stringify(comparison),
+      { status: 200 },
+    ));
+    const gateway = new HttpTreasuryRagGateway({ fetcher });
+
+    const result = await gateway.compareFailureLabExperiment({
+      experimentId: "tenant-filter-on-vs-off",
+    });
+
+    expect(result.degradedCases[0]?.caseId).toBe("acme-exclusive-rule");
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/failure-lab/compare",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ experimentId: "tenant-filter-on-vs-off" }),
+      }),
+    );
+  });
+
+  it("rejects invalid failure lab payloads instead of trusting the server", async () => {
+    const fetcher = vi.fn(async () => new Response(
+      JSON.stringify({ experiments: [{ id: 42 }] }),
+      { status: 200 },
+    ));
+    const gateway = new HttpTreasuryRagGateway({ fetcher });
+
+    await expect(gateway.listFailureLabExperiments()).rejects.toThrow();
+  });
+
+  it("propagates controlled API errors with their status", async () => {
+    const fetcher = vi.fn(async () => new Response(
+      JSON.stringify({
+        error: {
+          code: "EXPERIMENT_NOT_FOUND",
+          message: "Experiment unknown was not found",
+        },
+      }),
+      { status: 404 },
+    ));
+    const gateway = new HttpTreasuryRagGateway({ fetcher });
+
+    const failure = await gateway
+      .compareFailureLabExperiment({ experimentId: "unknown" })
+      .catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(TreasuryRagGatewayError);
+    expect((failure as TreasuryRagGatewayError).status).toBe(404);
+    expect((failure as TreasuryRagGatewayError).message).toBe(
+      "Experiment unknown was not found",
+    );
   });
 });

@@ -2,6 +2,9 @@ import type {
   ChunkPreviewRequest,
   ChunkPreviewResponse,
   DocumentListResponse,
+  FailureLabComparisonRequest,
+  FailureLabComparisonResponse,
+  FailureLabExperimentListResponse,
   GroundedAnswerRequest,
   GroundedAnswerResponse,
   RunEvent,
@@ -42,4 +45,11 @@ export interface TreasuryRagGateway {
     observer: RunObserver,
     options?: GatewayRequestOptions,
   ): Promise<RunStream>;
+  listFailureLabExperiments(
+    options?: GatewayRequestOptions,
+  ): Promise<FailureLabExperimentListResponse>;
+  compareFailureLabExperiment(
+    request: FailureLabComparisonRequest,
+    options?: GatewayRequestOptions,
+  ): Promise<FailureLabComparisonResponse>;
 }

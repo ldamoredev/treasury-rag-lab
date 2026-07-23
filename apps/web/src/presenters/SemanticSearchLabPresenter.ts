@@ -166,6 +166,7 @@ export class SemanticSearchLabPresenter {
             topK: this.topK,
             threshold: this.threshold,
             tenantFilterEnabled: this.tenantFilterEnabled,
+            latestVersionOnly: true,
           },
         },
         { signal: request.signal },

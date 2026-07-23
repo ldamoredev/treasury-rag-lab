@@ -6,9 +6,13 @@ import { MarkdownHeadingChunker } from "../../src/chunking/domain/MarkdownHeadin
 import { ListDocuments } from "../../src/documents/application/ListDocuments.js";
 import { FileDocumentRepository } from "../../src/documents/infrastructure/FileDocumentRepository.js";
 import type { DocumentRepository } from "../../src/documents/ports/DocumentRepository.js";
+import { EvalRunner } from "../../src/evals/application/EvalRunner.js";
+import { ListFailureLabExperiments } from "../../src/failureLab/application/ListFailureLabExperiments.js";
+import { RunFailureLabComparison } from "../../src/failureLab/application/RunFailureLabComparison.js";
 import type { GroundedAnswerGenerator } from "../../src/grounding/ports/GroundedAnswerGenerator.js";
 import { ChunkPreviewController } from "../../src/http/controllers/ChunkPreviewController.js";
 import { DocumentsController } from "../../src/http/controllers/DocumentsController.js";
+import { FailureLabController } from "../../src/http/controllers/FailureLabController.js";
 import { GroundedAnswerController } from "../../src/http/controllers/GroundedAnswerController.js";
 import { HealthController } from "../../src/http/controllers/HealthController.js";
 import { RunsController } from "../../src/http/controllers/RunsController.js";
@@ -22,6 +26,7 @@ type TestAppOverrides = {
   policySearch?: PolicySearch;
   groundedAnswerGenerator?: GroundedAnswerGenerator;
   runs?: RunLifecycle;
+  failureLab?: FailureLabController;
 };
 
 const unavailableSearch: PolicySearch = {
@@ -69,6 +74,10 @@ export function createTestApp(overrides: TestAppOverrides = {}) {
     runs: new RunsController(
       overrides.runs ?? unavailableRuns,
       new SseRunConnectionFactory(),
+    ),
+    failureLab: overrides.failureLab ?? new FailureLabController(
+      new ListFailureLabExperiments(),
+      new RunFailureLabComparison(new EvalRunner(unavailableSearch), []),
     ),
   });
 }

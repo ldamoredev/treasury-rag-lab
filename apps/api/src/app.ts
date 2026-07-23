@@ -2,6 +2,7 @@ import express from "express";
 
 import type { ChunkPreviewController } from "./http/controllers/ChunkPreviewController.js";
 import type { DocumentsController } from "./http/controllers/DocumentsController.js";
+import type { FailureLabController } from "./http/controllers/FailureLabController.js";
 import type { GroundedAnswerController } from "./http/controllers/GroundedAnswerController.js";
 import type { HealthController } from "./http/controllers/HealthController.js";
 import type { RunsController } from "./http/controllers/RunsController.js";
@@ -15,6 +16,7 @@ export type HttpControllers = {
   semanticSearch: SemanticSearchController;
   groundedAnswer: GroundedAnswerController;
   runs: RunsController;
+  failureLab: FailureLabController;
 };
 
 export function createApp(controllers: HttpControllers) {
@@ -29,6 +31,8 @@ export function createApp(controllers: HttpControllers) {
   app.post("/api/answer", controllers.groundedAnswer.handle);
   app.post("/api/runs", controllers.runs.create);
   app.get("/api/runs/:runId/events", controllers.runs.events);
+  app.get("/api/failure-lab/experiments", controllers.failureLab.list);
+  app.post("/api/failure-lab/compare", controllers.failureLab.compare);
 
   app.use(errorHandler);
   return app;

@@ -2,6 +2,9 @@ import type {
   ChunkPreviewRequest,
   ChunkPreviewResponse,
   DocumentListResponse,
+  FailureLabComparisonRequest,
+  FailureLabComparisonResponse,
+  FailureLabExperimentListResponse,
   GroundedAnswerRequest,
   GroundedAnswerResponse,
   RunEvent,
@@ -65,14 +68,81 @@ export const searchResponse: SearchResponse = {
   },
 };
 
+export const failureLabExperimentsResponse: FailureLabExperimentListResponse = {
+  experiments: [
+    {
+      id: "tenant-filter-on-vs-off",
+      name: "Tenant filter: on vs off",
+      description: "Compara el aislamiento de tenant contra un retrieval sin filtro.",
+      variable: "tenantFilter",
+      baseline: {
+        chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+        topK: 5,
+        threshold: 0.7,
+        tenantFilterEnabled: true,
+        latestVersionOnly: true,
+      },
+      variant: {
+        chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+        topK: 5,
+        threshold: 0.7,
+        tenantFilterEnabled: false,
+        latestVersionOnly: true,
+      },
+      responsibleLayer: "filtering",
+      suggestedFix: "Reactivar el filtro de tenant.",
+      learning: "La fuga entre tenants ocurre en retrieval.",
+    },
+  ],
+};
+
+export const failureLabComparisonResponse: FailureLabComparisonResponse = {
+  experiment: failureLabExperimentsResponse.experiments[0]!,
+  mode: "retrieval",
+  generatedAt: "2026-07-22T12:00:00.000Z",
+  metricDeltas: [
+    {
+      metric: "tenantLeakage",
+      label: "Fuga entre tenants",
+      baseline: { passed: 10, failed: 0, notApplicable: 0, rate: 1 },
+      variant: { passed: 6, failed: 4, notApplicable: 0, rate: 0.6 },
+      delta: -0.4,
+    },
+    {
+      metric: "citationValidity",
+      label: "Validez de citas",
+      baseline: { passed: 0, failed: 0, notApplicable: 10, rate: null },
+      variant: { passed: 0, failed: 0, notApplicable: 10, rate: null },
+      delta: null,
+    },
+  ],
+  improvedCases: [],
+  degradedCases: [
+    {
+      caseId: "acme-exclusive-rule",
+      name: "Regla exclusiva de Acme",
+      baselineStatus: "passed",
+      variantStatus: "failed",
+      detail: "tenantLeakage: passed → failed",
+    },
+  ],
+  unchangedCases: 9,
+  observedFailure: "La variante degradó 1 caso(s): acme-exclusive-rule.",
+  responsibleLayer: "filtering",
+  suggestedFix: "Reactivar el filtro de tenant.",
+};
+
 export class FakeTreasuryRagGateway implements TreasuryRagGateway {
   readonly previewCalls: ChunkPreviewRequest[] = [];
   readonly searchCalls: SearchRequest[] = [];
   readonly runCalls: GroundedAnswerRequest[] = [];
+  readonly comparisonCalls: FailureLabComparisonRequest[] = [];
   readonly signals: AbortSignal[] = [];
   runEvents: RunEvent[] = [];
   previewResult: Promise<ChunkPreviewResponse> | undefined;
   searchResult: Promise<SearchResponse> | undefined;
+  experimentListResult: Promise<FailureLabExperimentListResponse> | undefined;
+  comparisonResult: Promise<FailureLabComparisonResponse> | undefined;
   stream: RunStream = { close() {} };
 
   async listDocuments(options: GatewayRequestOptions = {}) {
@@ -116,6 +186,20 @@ export class FakeTreasuryRagGateway implements TreasuryRagGateway {
       observer.onEvent(event);
     }
     return this.stream;
+  }
+
+  async listFailureLabExperiments(options: GatewayRequestOptions = {}) {
+    this.captureSignal(options);
+    return this.experimentListResult ?? failureLabExperimentsResponse;
+  }
+
+  async compareFailureLabExperiment(
+    request: FailureLabComparisonRequest,
+    options: GatewayRequestOptions = {},
+  ) {
+    this.comparisonCalls.push(request);
+    this.captureSignal(options);
+    return this.comparisonResult ?? failureLabComparisonResponse;
   }
 
   private captureSignal(options: GatewayRequestOptions) {

@@ -12,6 +12,9 @@
     "dev": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web typecheck",
-    "test": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web test"
+    "test": "pnpm --filter @treasury-rag/contracts build && pnpm --parallel --filter @treasury-rag/api --filter @treasury-rag/web test",
+    "eval": "pnpm --filter @treasury-rag/contracts build && pnpm --filter @treasury-rag/api eval",
+    "eval:live": "pnpm --filter @treasury-rag/contracts build && pnpm --filter @treasury-rag/api eval:live",
+    "eval:live:grader": "pnpm --filter @treasury-rag/contracts build && pnpm --filter @treasury-rag/api eval:live:grader"
   }
 }

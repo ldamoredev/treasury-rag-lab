@@ -1,18 +1,45 @@
-import type { GroundedAnswerResponse } from "@treasury-rag/contracts";
+import type {
+  GroundedAnswerResponse,
+  SearchResult,
+  Tenant,
+} from "@treasury-rag/contracts";
 
-export function evaluateGrounding(response: GroundedAnswerResponse) {
+type GroundingEvidence = Pick<
+  GroundedAnswerResponse,
+  "claims" | "sources" | "tenant"
+> & {
+  allowedTenants?: readonly Tenant[];
+};
+
+export type GroundingEvaluation = {
+  citationValidity: boolean;
+  tenantLeakage: boolean;
+  invalidCitationIds: string[];
+  leakedSources: SearchResult[];
+};
+
+export function evaluateGrounding(
+  evidence: GroundingEvidence,
+): GroundingEvaluation {
   const sourceIds = new Set(
-    response.sources.map((source) => source.chunkId),
+    evidence.sources.map((source) => source.chunkId),
   );
-  const citations = response.claims.flatMap((claim) => claim.citationIds);
+  const citations = evidence.claims.flatMap((claim) => claim.citationIds);
+  const permittedTenants: readonly Tenant[] = evidence.allowedTenants
+    ?? [evidence.tenant];
+
+  const invalidCitationIds = citations.filter(
+    (citationId) => !sourceIds.has(citationId),
+  );
+  const leakedSources = evidence.sources.filter(
+    (source) =>
+      source.tenant !== "global" && !permittedTenants.includes(source.tenant),
+  );
 
   return {
-    citationValidity: citations.every((citationId) =>
-      sourceIds.has(citationId)
-    ),
-    tenantLeakage: response.sources.some(
-      (source) =>
-        source.tenant !== "global" && source.tenant !== response.tenant,
-    ),
+    citationValidity: invalidCitationIds.length === 0,
+    tenantLeakage: leakedSources.length > 0,
+    invalidCitationIds,
+    leakedSources,
   };
 }

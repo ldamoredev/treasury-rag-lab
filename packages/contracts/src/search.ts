@@ -7,6 +7,7 @@ export const SearchConfigSchema = z.object({
   topK: z.number().int().min(1).max(20),
   threshold: z.number().min(-1).max(1),
   tenantFilterEnabled: z.boolean(),
+  latestVersionOnly: z.boolean().default(true),
 });
 
 export const SearchRequestSchema = z.object({

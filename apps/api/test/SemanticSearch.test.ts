@@ -75,6 +75,7 @@ const baseRequest = {
     topK: 5,
     threshold: -1,
     tenantFilterEnabled: true,
+    latestVersionOnly: true,
   },
 };
 

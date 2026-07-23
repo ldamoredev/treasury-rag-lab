@@ -131,6 +131,7 @@ describe("GroundedAnswerLabPresenter", () => {
         topK: 8,
         threshold: 0.4,
         tenantFilterEnabled: true,
+        latestVersionOnly: true,
       },
     });
   });

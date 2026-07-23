@@ -1,4 +1,7 @@
 import { DocumentNotFoundError } from "../../documents/application/DocumentNotFoundError.js";
+import { ExperimentNotFoundError } from "../../failureLab/application/ExperimentNotFoundError.js";
+import { FailureLabUnavailableError } from "../../failureLab/application/FailureLabUnavailableError.js";
+import { InvalidExperimentConfigError } from "../../failureLab/domain/InvalidExperimentConfigError.js";
 import { GroundedAnswerUnavailableError } from "../../grounding/application/GroundedAnswerUnavailableError.js";
 import { ProviderUnavailableError } from "../../grounding/application/ProviderUnavailableError.js";
 import { GroundingValidationError } from "../../grounding/domain/GroundingValidationError.js";
@@ -40,6 +43,31 @@ export function mapErrorToHttp(error: unknown): ErrorResponse {
     return {
       status: 404,
       body: { error: { code: "RUN_NOT_FOUND", message: error.message } },
+    };
+  }
+  if (error instanceof ExperimentNotFoundError) {
+    return {
+      status: 404,
+      body: { error: { code: "EXPERIMENT_NOT_FOUND", message: error.message } },
+    };
+  }
+  if (error instanceof InvalidExperimentConfigError) {
+    return {
+      status: 500,
+      body: {
+        error: { code: "INVALID_EXPERIMENT_CONFIG", message: error.message },
+      },
+    };
+  }
+  if (error instanceof FailureLabUnavailableError) {
+    return {
+      status: 503,
+      body: {
+        error: {
+          code: "FAILURE_LAB_UNAVAILABLE",
+          message: "The failure lab is unavailable",
+        },
+      },
     };
   }
   if (error instanceof GroundingValidationError) {
