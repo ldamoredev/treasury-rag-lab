@@ -5,11 +5,16 @@ import { fileURLToPath } from "node:url";
 import { CharacterWindowChunker } from "../../chunking/domain/CharacterWindowChunker.js";
 import { DocumentChunker } from "../../chunking/domain/DocumentChunker.js";
 import { MarkdownHeadingChunker } from "../../chunking/domain/MarkdownHeadingChunker.js";
+import { TokenWindowChunker } from "../../chunking/domain/TokenWindowChunker.js";
 import { FileDocumentRepository } from "../../documents/infrastructure/FileDocumentRepository.js";
 import { GenerateGroundedAnswer } from "../../grounding/application/GenerateGroundedAnswer.js";
 import { CitationValidator } from "../../grounding/domain/CitationValidator.js";
 import { AnthropicChatProvider } from "../../grounding/infrastructure/AnthropicChatProvider.js";
 import type { GroundedAnswerGenerator } from "../../grounding/ports/GroundedAnswerGenerator.js";
+import { DocumentIngestionPipeline } from "../../ingestion/application/DocumentIngestionPipeline.js";
+import { MetadataChunkContextualizer } from "../../ingestion/domain/MetadataChunkContextualizer.js";
+import { PassthroughChunkContextualizer } from "../../ingestion/domain/PassthroughChunkContextualizer.js";
+import { E5TokenCounter } from "../../ingestion/infrastructure/E5TokenCounter.js";
 import { SemanticSearch } from "../../retrieval/application/SemanticSearch.js";
 import { JsonEmbeddingCache } from "../../retrieval/infrastructure/JsonEmbeddingCache.js";
 import { LocalE5EmbeddingProvider } from "../../retrieval/infrastructure/LocalE5EmbeddingProvider.js";
@@ -63,13 +68,25 @@ try {
 const options = parseArgs(process.argv.slice(2));
 
 const documents = new FileDocumentRepository();
+const modelCacheDir = fileURLToPath(
+  new URL("../../../data/model-cache", import.meta.url),
+);
+const embeddingModel = process.env.EMBEDDING_MODEL
+  ?? "Xenova/multilingual-e5-small";
+const hasher = new Sha256TextHasher();
+const tokens = new E5TokenCounter({
+  model: embeddingModel,
+  cacheDir: modelCacheDir,
+});
 const chunker = new DocumentChunker([
   new CharacterWindowChunker(),
   new MarkdownHeadingChunker(),
+  new TokenWindowChunker(tokens),
 ]);
+const ingestion = new DocumentIngestionPipeline(chunker, tokens, hasher);
 const embeddingProvider = new LocalE5EmbeddingProvider({
-  model: process.env.EMBEDDING_MODEL ?? "Xenova/multilingual-e5-small",
-  cacheDir: fileURLToPath(new URL("../../../data/model-cache", import.meta.url)),
+  model: embeddingModel,
+  cacheDir: modelCacheDir,
 });
 const embeddingCache = new JsonEmbeddingCache({
   filePath: fileURLToPath(new URL("../../../data/index/embeddings.json", import.meta.url)),
@@ -78,10 +95,14 @@ const embeddingCache = new JsonEmbeddingCache({
 });
 const search = new SemanticSearch(
   documents,
-  chunker,
+  ingestion,
+  tokens,
+  {
+    enabled: new MetadataChunkContextualizer(tokens, hasher),
+    disabled: new PassthroughChunkContextualizer(tokens, hasher),
+  },
   embeddingProvider,
   embeddingCache,
-  new Sha256TextHasher(),
 );
 
 const scripts = new Map<string, AnswerScript>(

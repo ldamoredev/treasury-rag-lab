@@ -1,6 +1,6 @@
-import type { Chunk } from "@treasury-rag/contracts";
+import type { ContextualizedChunk } from "@treasury-rag/contracts";
 
 export type EmbeddedChunk = {
-  chunk: Chunk;
+  chunk: ContextualizedChunk;
   embedding: number[];
 };

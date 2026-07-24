@@ -3,6 +3,7 @@ import { PreviewDocumentChunks } from "../../src/chunking/application/PreviewDoc
 import { CharacterWindowChunker } from "../../src/chunking/domain/CharacterWindowChunker.js";
 import { DocumentChunker } from "../../src/chunking/domain/DocumentChunker.js";
 import { MarkdownHeadingChunker } from "../../src/chunking/domain/MarkdownHeadingChunker.js";
+import { TokenWindowChunker } from "../../src/chunking/domain/TokenWindowChunker.js";
 import { ListDocuments } from "../../src/documents/application/ListDocuments.js";
 import { FileDocumentRepository } from "../../src/documents/infrastructure/FileDocumentRepository.js";
 import type { DocumentRepository } from "../../src/documents/ports/DocumentRepository.js";
@@ -18,8 +19,14 @@ import { HealthController } from "../../src/http/controllers/HealthController.js
 import { RunsController } from "../../src/http/controllers/RunsController.js";
 import { SemanticSearchController } from "../../src/http/controllers/SemanticSearchController.js";
 import { SseRunConnectionFactory } from "../../src/http/sse/SseRunConnectionFactory.js";
+import { DocumentIngestionPipeline } from "../../src/ingestion/application/DocumentIngestionPipeline.js";
+import { MetadataChunkContextualizer } from "../../src/ingestion/domain/MetadataChunkContextualizer.js";
+import type { ChunkContextualizer } from "../../src/ingestion/ports/ChunkContextualizer.js";
+import type { TokenCounter } from "../../src/ingestion/ports/TokenCounter.js";
+import { Sha256TextHasher } from "../../src/retrieval/infrastructure/Sha256TextHasher.js";
 import type { PolicySearch } from "../../src/retrieval/ports/PolicySearch.js";
 import type { RunLifecycle } from "../../src/runs/ports/RunLifecycle.js";
+import { FakeTokenCounter } from "./FakeTokenCounter.js";
 
 type TestAppOverrides = {
   documentRepository?: DocumentRepository;
@@ -27,6 +34,8 @@ type TestAppOverrides = {
   groundedAnswerGenerator?: GroundedAnswerGenerator;
   runs?: RunLifecycle;
   failureLab?: FailureLabController;
+  tokenCounter?: TokenCounter;
+  contextualizer?: ChunkContextualizer;
 };
 
 const unavailableSearch: PolicySearch = {
@@ -54,16 +63,28 @@ const unavailableRuns: RunLifecycle = {
 export function createTestApp(overrides: TestAppOverrides = {}) {
   const documents = overrides.documentRepository
     ?? new FileDocumentRepository();
+  const hasher = new Sha256TextHasher();
+  // Tests count tokens with the deterministic fake so the HTTP suite never
+  // loads a model; the token budget is still measured in tokens.
+  const tokens = overrides.tokenCounter ?? new FakeTokenCounter();
   const chunker = new DocumentChunker([
     new CharacterWindowChunker(),
     new MarkdownHeadingChunker(),
+    new TokenWindowChunker(tokens),
   ]);
+  const ingestion = new DocumentIngestionPipeline(chunker, tokens, hasher);
 
   return createApp({
     health: new HealthController(),
     documents: new DocumentsController(new ListDocuments(documents)),
     chunkPreview: new ChunkPreviewController(
-      new PreviewDocumentChunks(documents, chunker),
+      new PreviewDocumentChunks(
+        documents,
+        ingestion,
+        tokens,
+        overrides.contextualizer
+          ?? new MetadataChunkContextualizer(tokens, hasher),
+      ),
     ),
     semanticSearch: new SemanticSearchController(
       overrides.policySearch ?? unavailableSearch,

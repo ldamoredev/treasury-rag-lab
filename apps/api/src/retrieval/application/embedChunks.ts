@@ -1,9 +1,8 @@
-import type { Chunk } from "@treasury-rag/contracts";
+import type { ContextualizedChunk } from "@treasury-rag/contracts";
 
 import type { EmbeddedChunk } from "../domain/EmbeddedChunk.js";
 import type { EmbeddingCache } from "../ports/EmbeddingCache.js";
 import type { EmbeddingProvider } from "../ports/EmbeddingProvider.js";
-import type { TextHasher } from "../ports/TextHasher.js";
 
 export type EmbedChunksResult = {
   embeddedChunks: EmbeddedChunk[];
@@ -12,41 +11,43 @@ export type EmbedChunksResult = {
   cacheMisses: number;
 };
 
+/**
+ * Embeds the contextual text under the key ingestion produced. That key
+ * already carries the contextualizer, its model and its prompt version, so
+ * changing contextualization can never serve back a vector that was built
+ * from different text. Identical keys still collapse into one provider call.
+ */
 export async function embedChunks(
-  chunks: Chunk[],
+  chunks: ContextualizedChunk[],
   provider: EmbeddingProvider,
   cache: EmbeddingCache,
-  hasher: TextHasher,
 ): Promise<EmbedChunksResult> {
-  const hashes = chunks.map((chunk) => hasher.hash(chunk.text));
-  const cached = await cache.getMany([...new Set(hashes)]);
-  const missingTextsByHash = new Map<string, string>();
+  const cached = await cache.getMany([
+    ...new Set(chunks.map((chunk) => chunk.embeddingKey)),
+  ]);
+  const missingTextsByKey = new Map<string, string>();
   let cacheHits = 0;
 
-  chunks.forEach((chunk, index) => {
-    const hash = hashes[index];
-    if (!hash) {
-      return;
-    }
-    if (cached.embeddings.has(hash)) {
+  for (const chunk of chunks) {
+    if (cached.embeddings.has(chunk.embeddingKey)) {
       cacheHits += 1;
     } else {
-      missingTextsByHash.set(hash, chunk.text);
+      missingTextsByKey.set(chunk.embeddingKey, chunk.embeddingText);
     }
-  });
+  }
 
-  const missingHashes = [...missingTextsByHash.keys()];
-  const missingVectors = missingHashes.length === 0
+  const missingKeys = [...missingTextsByKey.keys()];
+  const missingVectors = missingKeys.length === 0
     ? []
-    : await provider.embedDocuments([...missingTextsByHash.values()]);
+    : await provider.embedDocuments([...missingTextsByKey.values()]);
   const newEmbeddings = new Map<string, number[]>();
 
-  missingHashes.forEach((hash, index) => {
+  missingKeys.forEach((key, index) => {
     const embedding = missingVectors[index];
     if (!embedding) {
-      throw new Error(`Missing embedding for hash ${hash}`);
+      throw new Error(`Missing embedding for key ${key}`);
     }
-    newEmbeddings.set(hash, embedding);
+    newEmbeddings.set(key, embedding);
   });
 
   const dimensions = cached.dimensions ?? missingVectors[0]?.length;
@@ -63,9 +64,8 @@ export async function embedChunks(
     ...cached.embeddings,
     ...newEmbeddings,
   ]);
-  const embeddedChunks = chunks.map((chunk, index) => {
-    const hash = hashes[index];
-    const embedding = hash ? allEmbeddings.get(hash) : undefined;
+  const embeddedChunks = chunks.map((chunk) => {
+    const embedding = allEmbeddings.get(chunk.embeddingKey);
     if (!embedding) {
       throw new Error(`Embedding not found for chunk ${chunk.id}`);
     }
@@ -76,6 +76,6 @@ export async function embedChunks(
     embeddedChunks,
     dimensions,
     cacheHits,
-    cacheMisses: missingHashes.length,
+    cacheMisses: missingKeys.length,
   };
 }

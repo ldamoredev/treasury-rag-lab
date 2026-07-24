@@ -1,9 +1,6 @@
 import type { Document } from "@treasury-rag/contracts";
 import { describe, expect, it } from "vitest";
 
-import { CharacterWindowChunker } from "../src/chunking/domain/CharacterWindowChunker.js";
-import { DocumentChunker } from "../src/chunking/domain/DocumentChunker.js";
-import { MarkdownHeadingChunker } from "../src/chunking/domain/MarkdownHeadingChunker.js";
 import type { DocumentRepository } from "../src/documents/ports/DocumentRepository.js";
 import { EvalCaseSchema, type EvalCase } from "../src/evals/domain/evalCase.js";
 import { EvalRunner } from "../src/evals/application/EvalRunner.js";
@@ -13,8 +10,7 @@ import {
   RunFailureLabComparison,
 } from "../src/failureLab/application/RunFailureLabComparison.js";
 import { failureLabExperiments } from "../src/failureLab/domain/failureLabExperiments.js";
-import { SemanticSearch } from "../src/retrieval/application/SemanticSearch.js";
-import { Sha256TextHasher } from "../src/retrieval/infrastructure/Sha256TextHasher.js";
+import { createSemanticSearch } from "./support/createSemanticSearch.js";
 import { FakeEmbeddingProvider } from "./support/FakeEmbeddingProvider.js";
 import { MemoryEmbeddingCache } from "./support/MemoryEmbeddingCache.js";
 
@@ -108,15 +104,10 @@ function createComparison() {
       [TENANT_QUERY]: [0, 1],
     },
   });
-  const search = new SemanticSearch(
+  const search = createSemanticSearch(
     repository,
-    new DocumentChunker([
-      new CharacterWindowChunker(),
-      new MarkdownHeadingChunker(),
-    ]),
     provider,
     new MemoryEmbeddingCache(),
-    new Sha256TextHasher(),
   );
   return new RunFailureLabComparison(
     new EvalRunner(search),

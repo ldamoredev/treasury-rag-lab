@@ -7,11 +7,15 @@ import { parseHttpRequest } from "../requestValidation.js";
 export class ChunkPreviewController {
   constructor(private readonly previewChunks: PreviewDocumentChunks) {}
 
-  readonly handle: RequestHandler = (request, response) => {
-    const input = parseHttpRequest(ChunkPreviewRequestSchema, request.body, {
-      code: "INVALID_CHUNK_PREVIEW_REQUEST",
-      message: "The chunk preview request is invalid",
-    });
-    response.status(200).json(this.previewChunks.execute(input));
+  readonly handle: RequestHandler = async (request, response, next) => {
+    try {
+      const input = parseHttpRequest(ChunkPreviewRequestSchema, request.body, {
+        code: "INVALID_CHUNK_PREVIEW_REQUEST",
+        message: "The chunk preview request is invalid",
+      });
+      response.status(200).json(await this.previewChunks.execute(input));
+    } catch (error) {
+      next(error);
+    }
   };
 }

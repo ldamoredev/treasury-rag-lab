@@ -1,12 +1,8 @@
 import type { Document } from "@treasury-rag/contracts";
 import { describe, expect, it } from "vitest";
 
-import { CharacterWindowChunker } from "../src/chunking/domain/CharacterWindowChunker.js";
-import { DocumentChunker } from "../src/chunking/domain/DocumentChunker.js";
-import { MarkdownHeadingChunker } from "../src/chunking/domain/MarkdownHeadingChunker.js";
 import type { DocumentRepository } from "../src/documents/ports/DocumentRepository.js";
-import { SemanticSearch } from "../src/retrieval/application/SemanticSearch.js";
-import { Sha256TextHasher } from "../src/retrieval/infrastructure/Sha256TextHasher.js";
+import { createSemanticSearch } from "./support/createSemanticSearch.js";
 import { FakeEmbeddingProvider } from "./support/FakeEmbeddingProvider.js";
 import { MemoryEmbeddingCache } from "./support/MemoryEmbeddingCache.js";
 
@@ -54,16 +50,7 @@ function createFixture() {
     },
   });
   const cache = new MemoryEmbeddingCache();
-  const service = new SemanticSearch(
-    repository,
-    new DocumentChunker([
-      new CharacterWindowChunker(),
-      new MarkdownHeadingChunker(),
-    ]),
-    provider,
-    cache,
-    new Sha256TextHasher(),
-  );
+  const service = createSemanticSearch(repository, provider, cache);
   return { service, provider };
 }
 
@@ -76,6 +63,7 @@ const baseRequest = {
     threshold: -1,
     tenantFilterEnabled: true,
     latestVersionOnly: true,
+    contextualIngestion: false,
   },
 };
 
@@ -114,6 +102,69 @@ describe("search service", () => {
 
     expect(response.results).toHaveLength(1);
     expect(response.results[0]?.documentId).toBe("global-policy");
+  });
+
+  it("embeds the contextual text but returns the document text as evidence", async () => {
+    const provider = new FakeEmbeddingProvider({
+      documents: {},
+      queries: {},
+      fallback: [1, 0],
+    });
+    const service = createSemanticSearch(
+      repository,
+      provider,
+      new MemoryEmbeddingCache(),
+    );
+
+    const response = await service.search({
+      ...baseRequest,
+      config: { ...baseRequest.config, contextualIngestion: true },
+    });
+
+    for (const result of response.results) {
+      const document = documents.find(
+        (candidate) => candidate.id === result.documentId,
+      );
+      expect(result.text).toBe(
+        document!.content.slice(result.startOffset, result.endOffset),
+      );
+      expect(result.contextualPrefix).toContain(document!.title);
+      expect(result.text).not.toContain(result.contextualPrefix);
+    }
+    expect(
+      provider.embeddedDocuments.some((text) => text.startsWith("[documento:")),
+    ).toBe(true);
+    expect(response.stats.contextualizer).toBe("metadata-heading-path");
+  });
+
+  it("leaves the retrieved text untouched when contextualization is off", async () => {
+    const { service } = createFixture();
+
+    const response = await service.search(baseRequest);
+
+    expect(response.stats.contextualizer).toBe("none");
+    for (const result of response.results) {
+      expect(result.contextualPrefix).toBe("");
+    }
+  });
+
+  it("does not reuse plain vectors after contextualization is enabled", async () => {
+    const provider = new FakeEmbeddingProvider({
+      documents: {},
+      queries: {},
+      fallback: [1, 0],
+    });
+    const cache = new MemoryEmbeddingCache();
+    const service = createSemanticSearch(repository, provider, cache);
+
+    await service.search(baseRequest);
+    const contextual = await service.search({
+      ...baseRequest,
+      config: { ...baseRequest.config, contextualIngestion: true },
+    });
+
+    expect(contextual.stats.cacheHits).toBe(0);
+    expect(contextual.stats.cacheMisses).toBe(2);
   });
 
   it("reuses cached document embeddings on the second search", async () => {

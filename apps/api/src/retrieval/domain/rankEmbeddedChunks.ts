@@ -44,7 +44,10 @@ export function rankEmbeddedChunks(
         version: chunk.version,
         effectiveFrom: chunk.effectiveFrom,
         score,
+        // The citation text stays the document's own words. The prefix that
+        // helped this chunk rank travels beside it, never inside it.
         text: chunk.text,
+        contextualPrefix: chunk.contextualPrefix,
         startOffset: chunk.startOffset,
         endOffset: chunk.endOffset,
       };
