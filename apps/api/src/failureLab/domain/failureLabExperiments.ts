@@ -1,19 +1,37 @@
 import {
   FailureLabExperimentSchema,
+  type CharacterChunkingConfig,
+  type ChunkingConfig,
   type FailureLabConfig,
   type FailureLabExperiment,
 } from "@treasury-rag/contracts";
 
+const BASELINE_CHUNKING: CharacterChunkingConfig = {
+  strategy: "characters",
+  chunkSize: 300,
+  overlap: 0,
+};
+
 const BASELINE: FailureLabConfig = {
-  chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
+  chunking: BASELINE_CHUNKING,
   topK: 5,
   threshold: 0.7,
   tenantFilterEnabled: true,
   latestVersionOnly: true,
+  contextualIngestion: false,
 };
 
+/**
+ * An experiment either tunes the baseline's character window or replaces the
+ * chunking config outright. Both stay one variable: `changedVariables`
+ * reports a strategy swap as a single `chunkingStrategy` change.
+ */
+type ChunkingOverride =
+  | Partial<Omit<CharacterChunkingConfig, "strategy">>
+  | ChunkingConfig;
+
 type ConfigOverrides = Partial<Omit<FailureLabConfig, "chunking">> & {
-  chunking?: Partial<FailureLabConfig["chunking"]>;
+  chunking?: ChunkingOverride;
 };
 
 function experiment(
@@ -26,7 +44,9 @@ function experiment(
   const merge = (overrides: ConfigOverrides): FailureLabConfig => ({
     ...BASELINE,
     ...overrides,
-    chunking: { ...BASELINE.chunking, ...overrides.chunking },
+    chunking: overrides.chunking && "strategy" in overrides.chunking
+      ? overrides.chunking
+      : { ...BASELINE_CHUNKING, ...overrides.chunking },
   });
 
   return FailureLabExperimentSchema.parse({
@@ -123,6 +143,32 @@ export const failureLabExperiments: FailureLabExperiment[] = [
       "Mantener latestVersionOnly en true (default seguro) y conservar las versiones históricas fuera del retrieval operativo.",
     learning:
       "Las versiones viejas no desaparecen por similitud: sin un filtro explícito, una política derogada puede rankear mejor que la vigente.",
+  }),
+  experiment({
+    id: "contextual-ingestion-off-vs-on",
+    name: "Ingestión contextual: off vs on",
+    description:
+      "Compara embeber el chunk tal como quedó cortado contra embeberlo precedido por su documento, tenant, versión y sección. El texto de la cita no cambia en ninguno de los dos modos.",
+    variable: "contextualIngestion",
+    variant: { contextualIngestion: true },
+    responsibleLayer: "chunking",
+    suggestedFix:
+      "Contextualizar el chunk en la ingestión cuando el corpus tiene fragmentos que sólo se entienden por la sección o el tenant del que provienen. La contextualización se agrega al texto embebido, nunca al texto citado.",
+    learning:
+      "Un chunk puede estar bien cortado sintácticamente y ser irrecuperable igual: “La diferencia se considera aceptable” no dice de qué política, de qué cliente ni de qué sección viene, y el vector tampoco lo sabe.",
+  }),
+  experiment({
+    id: "characters-vs-token-aware",
+    name: "Chunking: caracteres vs token-aware",
+    description:
+      "Compara una ventana de 300 caracteres contra una ventana medida en tokens que respeta headings. El presupuesto en caracteres aproxima mal el costo real: en español este tokenizer supera los cinco caracteres por token.",
+    variable: "chunkingStrategy",
+    variant: { chunking: { strategy: "tokens", maxTokens: 96, overlapTokens: 24 } },
+    responsibleLayer: "chunking",
+    suggestedFix:
+      "Medir el presupuesto en la misma unidad que gastan el modelo de embeddings y el prompt, y cortar en los límites que el documento ya define.",
+    learning:
+      "Caracteres y tokens no son intercambiables, y la relación depende del idioma. Cortar por tokens hace comparable el costo entre configuraciones, pero no garantiza por sí solo mejor recall.",
   }),
 ];
 

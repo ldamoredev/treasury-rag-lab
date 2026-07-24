@@ -26,6 +26,8 @@ const emptySearch: PolicySearch = {
       durationMs: 1,
       provider: "fake",
       model: "fake-model",
+      contextualizer: "none",
+      tokenizer: "test",
     },
   }),
 };
@@ -48,7 +50,7 @@ describe("failure lab API", () => {
       .expect(200);
     const body = FailureLabExperimentListResponseSchema.parse(response.body);
 
-    expect(body.experiments).toHaveLength(6);
+    expect(body.experiments).toHaveLength(8);
     expect(body.experiments.map((experiment) => experiment.variable)).toEqual([
       "chunkSize",
       "overlap",
@@ -56,6 +58,8 @@ describe("failure lab API", () => {
       "threshold",
       "tenantFilter",
       "latestVersionFilter",
+      "contextualIngestion",
+      "chunkingStrategy",
     ]);
     expect(body.experiments[0]?.baseline).toBeDefined();
     expect(body.experiments[0]?.variant).toBeDefined();

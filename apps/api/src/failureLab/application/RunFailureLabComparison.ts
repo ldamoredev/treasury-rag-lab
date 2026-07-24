@@ -108,6 +108,7 @@ function toSearchConfig(config: FailureLabConfig): SearchConfig {
     threshold: config.threshold,
     tenantFilterEnabled: config.tenantFilterEnabled,
     latestVersionOnly: config.latestVersionOnly,
+    contextualIngestion: config.contextualIngestion,
   };
 }
 
