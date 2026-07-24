@@ -10,8 +10,14 @@ a framework around them.
 apps/api/src
 ├── documents/
 │   ├── application/       list documents and document errors
+│   ├── domain/            frontmatter-backed document parsing
 │   ├── ports/             document repository contract
 │   └── infrastructure/    filesystem-backed repository
+├── ingestion/
+│   ├── domain/            frontmatter, markdown structure, manifest, contextualizers
+│   ├── application/       document ingestion pipeline
+│   ├── ports/             token counter and contextualizer contracts
+│   └── infrastructure/    tokenizer adapter
 ├── chunking/
 │   ├── domain/            strategies, invariants and strategy selection
 │   └── application/       chunk preview use case
@@ -91,19 +97,71 @@ configuration is an SDK constraint and is confined to
 `LocalE5EmbeddingProvider`; the provider pipeline itself is lazy state owned by
 that adapter instance.
 
+## Ingestion
+
+`DocumentIngestionPipeline` owns one ordering — chunk, contextualize, account
+— and nothing else. Strategies, tokenizer and contextualizer stay
+replaceable behind their own contracts.
+
+1. `MarkdownDocumentParser` reads the frontmatter block and validates the
+   metadata with `DocumentSchema`. `content` is the body only, so offsets and
+   citations do not move when metadata is edited.
+2. `DocumentChunker` dispatches to characters, headings or token windows.
+3. A `ChunkContextualizer` produces a `ContextualizedChunk`, adding
+   `contextualPrefix`, `embeddingText`, `embeddingKey` and `tokenCount`
+   **beside** the original `text`, never inside it.
+4. `buildIngestionManifest` records the corpus hash, per-chunk offsets, keys
+   and token counts, plus the chunking, tokenizer and contextualizer that
+   produced them.
+
+Ingestion is idempotent because it derives everything from the document
+content and the configuration and keeps no state between runs: the same corpus
+and configuration serialize to the same manifest.
+
+There is no separate contextualization cache. The embedding cache key is
+`sha256(contextualizerId | model | promptVersion | embeddingText)`, which
+already covers document, chunk, prompt version, provider and model — so
+changing any of them invalidates exactly the vectors it should, and a second
+cache would only be a second thing to keep consistent. When contextualization
+is off the key is the plain text hash, so vectors cached before this slice
+stay valid.
+
+The tokenizer is a loaded resource rather than a pure function. `TokenCounter`
+exposes `load()` separately from `count()`: chunking stays synchronous, and
+the callers that already are asynchronous make the tokenizer ready first.
+
+Nothing generated ever reaches a citation. `text` is an exact slice of the
+source at every stage, which makes the guarantee structural instead of a rule
+somebody has to remember.
+
 ## Semantic search request
 
 1. `SemanticSearchController` validates the body with the shared schema.
 2. `SemanticSearch` selects global plus requested-tenant documents.
-3. `DocumentChunker` dispatches to the configured chunking strategy.
-4. `embedChunks` hashes chunk text, reads cached vectors and embeds misses.
+3. `DocumentIngestionPipeline` chunks and contextualizes them, choosing the
+   enabled or disabled contextualizer from `contextualIngestion`.
+4. `embedChunks` reads cached vectors by `embeddingKey` and embeds misses
+   using `embeddingText`.
 5. The local E5 provider embeds the query with the query prefix.
 6. `rankEmbeddedChunks` calculates cosine similarity, applies threshold and
-   top-k, then creates deterministic ranked results.
-7. The use case returns results plus cache, model and timing statistics.
+   top-k, then creates deterministic ranked results carrying both the citation
+   text and the prefix that helped them rank.
+7. The use case returns results plus cache, model, contextualizer and timing
+   statistics.
 
 Document selection, cosine similarity and ranking remain pure because they are
-deterministic transformations without identity or lifecycle.
+deterministic transformations without identity or lifecycle. Frontmatter
+parsing, markdown structure, heading paths and manifest construction are pure
+for the same reason.
+
+### Why the tenant is not in the contextual prefix
+
+Tenant isolation is decided by `selectDocuments` before anything is ranked.
+Repeating the tenant inside the embedded text therefore adds no reachability —
+only lexical bias. Measured on the dataset it cost 9 points of recall@k
+(92% → 83%), because a question naming a tenant began outranking the global
+policy that answered it. Whatever a deterministic filter has already settled
+does not belong in the vector.
 
 ## Grounded answer request
 
@@ -216,6 +274,11 @@ rules.
 | `DocumentChunker` | Select an interchangeable strategy by configuration. |
 | `CharacterWindowChunker` | Protect window, overlap, offset and ID invariants. |
 | `MarkdownHeadingChunker` | Preserve heading-aware deterministic chunks. |
+| `TokenWindowChunker` | Cut by token budget while keeping chunks literal source slices. |
+| `MarkdownDocumentParser` | Validate frontmatter metadata against the document schema. |
+| `DocumentIngestionPipeline` | Order chunking, contextualization and manifest accounting. |
+| `MetadataChunkContextualizer` | Restore provenance without inventing text. |
+| `E5TokenCounter` | Own the tokenizer resource and its lifecycle. |
 | `SemanticSearch` | Coordinate tenant-safe retrieval and result statistics. |
 | `GenerateGroundedAnswer` | Coordinate retrieval, abstention, chat and validation. |
 | `CitationValidator` | Enforce citation and tenant grounding policy. |
@@ -231,6 +294,9 @@ rules.
 
 - `cosineSimilarity`: vector mathematics.
 - `rankEmbeddedChunks`: deterministic score/filter/sort/map pipeline.
+- `parseFrontmatter`: metadata/body separation without a YAML dependency.
+- `findSectionRanges` and `headingPathAt`: markdown structure with exact offsets.
+- `buildIngestionManifest`: deterministic accounting of one ingestion pass.
 - `selectDocuments`: tenant-selection policy without state.
 - `selectLatestDocumentVersions`: current-policy selection by family.
 - `validateEmbeddingBatch`: deterministic provider-output validation.
@@ -256,3 +322,17 @@ The in-memory run registry is intentionally process-local, the embedding cache
 remains JSON, and the document corpus remains file-backed. Replacing those
 adapters later does not require changing the use cases, but the current project
 does not pay the complexity cost of distributed persistence.
+
+## Dependencies considered and declined
+
+Slice 8 added no runtime dependency. Three candidates were evaluated:
+
+| Candidate | Version checked | Decision |
+| --- | --- | --- |
+| `gray-matter` | 4.0.3, MIT | Declined. It pulls `js-yaml ^3.13.1` — an obsolete major — to parse five scalar keys, and the values are validated by Zod either way. `parseFrontmatter` is ~40 pure, tested lines. |
+| `unified` + `remark-parse` | 11.0.5 / 11.0.0, MIT | Declined. A full mdast AST costs about a dozen transitive packages, and reconstructing exact character offsets from it is *more* fragile than scanning ATX headings, not less. Offsets are what keep a chunk a literal slice of its source. |
+| tokenizer from `@huggingface/transformers` | 3.8.1, already installed | Adopted. `AutoTokenizer` loads offline from the cached model in ~800 ms, so token counts match the embedding model exactly with no new dependency, no new download and no Docker impact. |
+
+Each is reversible: the frontmatter reader and the heading scanner are pure
+functions behind their own modules, and the tokenizer sits behind
+`TokenCounter` with a deterministic fake, so no test loads a model.

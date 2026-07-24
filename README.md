@@ -185,6 +185,76 @@ API endpoints:
 - `GET /api/failure-lab/experiments`
 - `POST /api/failure-lab/compare`
 
+### Slice 8: contextual ingestion and token-aware chunking
+
+A chunk can be cut correctly and still be unretrievable. “La diferencia se
+considera aceptable” is a complete, well-formed sentence that says nothing
+about which policy, which client or which section it belongs to — and the
+vector does not know either.
+
+Ingestion now separates what a chunk *is* from what it is *retrieved by*:
+
+| Field | Meaning |
+| --- | --- |
+| `text` | Citation text — an exact slice of the source document. |
+| `contextualPrefix` | Document title, version, effective date and heading path. |
+| `embeddingText` | `contextualPrefix` + `text`, the string that becomes a vector. |
+| `embeddingKey` | `sha256(contextualizer \| model \| promptVersion \| embeddingText)`. |
+| `tokenCount` | Tokens actually spent, measured with the embedding tokenizer. |
+
+`text` is never modified, so **a citation can never contain generated text**.
+The prefix is built only from validated frontmatter and from headings that
+appear literally in the document; nothing is invented.
+
+Contextualization sits behind the `ChunkContextualizer` port with two
+implementations — `MetadataChunkContextualizer` (deterministic, offline, the
+default) and `PassthroughChunkContextualizer` (the pre-slice-8 behaviour). It
+is selected per request through `contextualIngestion`, which defaults to
+`false` in the schema so requests written before this slice describe the same
+pipeline they always did.
+
+Document metadata moved into per-file YAML-style frontmatter, replacing the
+table that `FileDocumentRepository` used to keep alongside the corpus. The
+body starts after the frontmatter, so offsets and existing citations are
+unchanged.
+
+A third chunking strategy joins the other two rather than replacing them:
+
+```json
+{ "strategy": "tokens", "maxTokens": 96, "overlapTokens": 24 }
+```
+
+It measures token budgets instead of character budgets, prefers heading
+boundaries, and locates each cut by searching for the character offset whose
+prefix fits the budget — so a chunk stays a literal slice of its source. This
+matters more than it sounds: on this corpus and tokenizer, Spanish treasury
+prose runs at **~5.3 characters per token**, so the familiar `chunkSize: 300`
+is about 57 tokens, not the ~75 the usual four-characters-per-token rule
+suggests. The chunking lab now reports tokens per chunk and the extra tokens
+contextualization costs.
+
+Two Failure Lab experiments compare one variable each: `contextual ingestion
+off vs on` and `characters vs token-aware`.
+
+#### What the measurements showed
+
+Contextual ingestion is not free, and the dataset says so:
+
+- On the same seven-document corpus, recall@k went from **75% to 92%**.
+- Including the **tenant** in the prefix made things *worse* (83%): a question
+  naming a tenant started outranking the global rule that answered it. The
+  tenant is already enforced deterministically before ranking, so putting it
+  in the vector adds bias without adding reach. It was removed.
+- `ambiguous-tenant-conflict` **regressed and is left failing**. It needs
+  evidence from two documents at `topK: 5`, and contextualization pushed the
+  global chunk from the top five to rank 13. The oracle was not relaxed and
+  the case was not re-tuned to hide it: `pnpm eval` reports 92% recall@k and
+  exits non-zero. Reranking and hybrid retrieval are the honest fixes, and
+  they belong to later slices.
+- Simply adding two documents to the corpus broke `distributed-two-chunks`
+  before contextualization was involved at all. More corpus at a fixed `topK`
+  means less recall.
+
 ## Requirements
 
 - Node.js 24 or newer
@@ -221,6 +291,10 @@ pnpm test
 pnpm build
 pnpm eval
 ```
+
+`pnpm eval` currently exits non-zero: `ambiguous-tenant-conflict` fails its
+recall check for the reason documented under slice 8. That failure is a
+recorded trade-off, not an unnoticed break.
 
 Optional paid verification:
 
