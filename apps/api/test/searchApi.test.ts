@@ -17,6 +17,8 @@ const response: SearchResponse = {
     durationMs: 2,
     provider: "fake",
     model: "fake-model",
+    contextualizer: "none",
+    tokenizer: "test",
   },
 };
 

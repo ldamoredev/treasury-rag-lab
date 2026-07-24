@@ -22,6 +22,7 @@ const request: GroundedAnswerRequest = {
     threshold: 0.7,
     tenantFilterEnabled: true,
     latestVersionOnly: true,
+    contextualIngestion: false,
   },
 };
 
@@ -47,6 +48,7 @@ const response: GroundedAnswerResponse = {
       effectiveFrom: "2026-01-01",
       score: 0.92,
       text: "La factura permanece abierta.",
+      contextualPrefix: "",
       startOffset: 0,
       endOffset: 40,
     },
@@ -60,6 +62,8 @@ const response: GroundedAnswerResponse = {
     durationMs: 3,
     provider: "fake-embeddings",
     model: "fake-e5",
+    contextualizer: "none",
+    tokenizer: "test",
   },
   generation: {
     attempted: true,

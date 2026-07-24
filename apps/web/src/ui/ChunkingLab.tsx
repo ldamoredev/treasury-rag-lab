@@ -61,6 +61,13 @@ export function ChunkingLab({ presenter, model }: ChunkingLabProps) {
                 >
                   Headings
                 </button>
+                <button
+                  type="button"
+                  className={model.strategy === "tokens" ? "active" : ""}
+                  onClick={() => presenter.setStrategy("tokens")}
+                >
+                  Tokens
+                </button>
               </div>
             </div>
 
@@ -114,7 +121,7 @@ export function ChunkingLab({ presenter, model }: ChunkingLabProps) {
                   <div className="range-labels"><span>0</span><span>{model.overlapRangeMaximum}</span></div>
                 </div>
               </>
-            ) : (
+            ) : model.strategy === "headings" ? (
               <div className="field-group range-field">
                 <div className="range-field__header">
                   <label htmlFor="max-chunk-size">Máximo por chunk</label>
@@ -138,6 +145,56 @@ export function ChunkingLab({ presenter, model }: ChunkingLabProps) {
                 />
                 <div className="range-labels"><span>100</span><span>1600</span></div>
               </div>
+            ) : (
+              <>
+                <div className="field-group range-field">
+                  <div className="range-field__header">
+                    <label htmlFor="max-tokens">Máximo de tokens</label>
+                    <input
+                      aria-label="Valor máximo de tokens"
+                      type="number"
+                      min="4"
+                      max="1024"
+                      value={model.maxTokens}
+                      onChange={(event) => presenter.setMaxTokens(Number(event.target.value))}
+                    />
+                  </div>
+                  <input
+                    id="max-tokens"
+                    type="range"
+                    min="16"
+                    max="512"
+                    step="8"
+                    value={Math.min(512, Math.max(16, model.maxTokens))}
+                    onChange={(event) => presenter.setMaxTokens(Number(event.target.value))}
+                  />
+                  <div className="range-labels"><span>16</span><span>512</span></div>
+                </div>
+
+                <div className="field-group range-field">
+                  <div className="range-field__header">
+                    <label htmlFor="overlap-tokens">Overlap en tokens</label>
+                    <input
+                      aria-label="Valor de overlap en tokens"
+                      type="number"
+                      min="0"
+                      max={model.maxTokens - 1}
+                      value={model.overlapTokens}
+                      onChange={(event) => presenter.setOverlapTokens(Number(event.target.value))}
+                    />
+                  </div>
+                  <input
+                    id="overlap-tokens"
+                    type="range"
+                    min="0"
+                    max={model.overlapTokensRangeMaximum}
+                    step="4"
+                    value={Math.min(model.overlapTokens, model.overlapTokensRangeMaximum)}
+                    onChange={(event) => presenter.setOverlapTokens(Number(event.target.value))}
+                  />
+                  <div className="range-labels"><span>0</span><span>{model.overlapTokensRangeMaximum}</span></div>
+                </div>
+              </>
             )}
 
             <div className="learning-note">
@@ -145,6 +202,8 @@ export function ChunkingLab({ presenter, model }: ChunkingLabProps) {
               <p>
                 El amarillo señala texto duplicado por overlap. Prestá atención a
                 títulos aislados, reglas cortadas y chunks con demasiado contexto.
+                El prefijo contextual se embebe pero nunca se cita: el texto de la
+                cita sigue siendo el del documento.
               </p>
             </div>
           </>
@@ -166,12 +225,18 @@ export function ChunkingLab({ presenter, model }: ChunkingLabProps) {
           <>
             <div className="metrics" aria-label="Estadísticas de chunking">
               <article><span>Chunks</span><strong>{model.metrics.chunks}</strong></article>
-              <article><span>Documento</span><strong>{model.metrics.documentCharacters}</strong><small>caracteres</small></article>
+              <article><span>Documento</span><strong>{model.metrics.documentCharacters}</strong><small>{model.metrics.documentTokens} tokens</small></article>
               <article className={model.metrics.duplicatedCharacters > 0 ? "metric--warning" : ""}>
                 <span>Duplicados</span><strong>{model.metrics.duplicatedCharacters}</strong><small>por overlap</small>
               </article>
-              <article><span>Promedio</span><strong>{model.metrics.averageCharacters}</strong><small>caracteres</small></article>
+              <article><span>Promedio</span><strong>{model.metrics.averageCharacters}</strong><small>{model.metrics.averageTokens} tokens</small></article>
+              <article><span>Máximo</span><strong>{model.metrics.maximumTokens}</strong><small>tokens por chunk</small></article>
+              <article className={model.metrics.contextualTokens > 0 ? "metric--warning" : ""}>
+                <span>Costo extra</span><strong>{model.metrics.contextualTokens}</strong><small>tokens embebidos de más</small>
+              </article>
             </div>
+
+            <p className="overline">Contextualizador: {model.contextualizerLabel}</p>
 
             <div className={`chunk-list ${model.isLoading ? "chunk-list--updating" : ""}`}>
               {model.chunks.map((chunk) => (
@@ -180,8 +245,13 @@ export function ChunkingLab({ presenter, model }: ChunkingLabProps) {
                   <div className="chunk-card__body">
                     <header>
                       <div><strong>Chunk {chunk.index}</strong><span>{chunk.offsets}</span></div>
-                      <span className="length-pill">{chunk.length}</span>
+                      <span className="length-pill">{chunk.length} · {chunk.tokens}</span>
                     </header>
+                    {chunk.contextualPrefix && (
+                      <p className="contextual-prefix" title="Se embebe con el chunk pero no forma parte del documento y nunca se cita">
+                        {chunk.contextualPrefix}
+                      </p>
+                    )}
                     <pre>
                       {chunk.overlapText && <mark title={`${chunk.overlapText.length} caracteres repetidos`}>{chunk.overlapText}</mark>}
                       {chunk.remainingText}

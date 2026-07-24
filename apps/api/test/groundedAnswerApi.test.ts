@@ -31,6 +31,7 @@ const response: GroundedAnswerResponse = {
       effectiveFrom: "2026-01-01",
       score: 0.91,
       text: "El pago parcial mantiene la factura abierta.",
+      contextualPrefix: "",
       startOffset: 0,
       endOffset: 50,
     },
@@ -44,6 +45,8 @@ const response: GroundedAnswerResponse = {
     durationMs: 2,
     provider: "fake",
     model: "fake-model",
+    contextualizer: "none",
+    tokenizer: "test",
   },
   generation: {
     attempted: true,

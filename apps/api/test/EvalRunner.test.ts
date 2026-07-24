@@ -41,6 +41,7 @@ function makeSource(overrides: Partial<SearchResult> = {}): SearchResult {
     effectiveFrom: "2026-01-01",
     score: 0.95,
     text: "texto con el fragmento esperado y ARS 125.000,00",
+    contextualPrefix: "",
     startOffset: 0,
     endOffset: 47,
     ...overrides,
@@ -60,6 +61,8 @@ function searchResponse(query: string, results: SearchResult[]): SearchResponse 
       durationMs: 1,
       provider: "fake",
       model: "fake-model",
+      contextualizer: "none",
+      tokenizer: "test",
     },
   };
 }
@@ -446,6 +449,7 @@ describe("EvalRunner", () => {
         threshold: 0.4,
         tenantFilterEnabled: false,
         latestVersionOnly: false,
+        contextualIngestion: false,
       },
     });
 

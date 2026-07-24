@@ -120,6 +120,7 @@ describe("GroundedAnswerLabPresenter", () => {
     presenter.setMaxChunkSize(900);
     presenter.setTopK(8);
     presenter.setThreshold(0.4);
+    presenter.setContextualIngestion(false);
     await presenter.submit();
 
     expect(presenter.model.activeInspectorTab).toBe("settings");
@@ -132,8 +133,20 @@ describe("GroundedAnswerLabPresenter", () => {
         threshold: 0.4,
         tenantFilterEnabled: true,
         latestVersionOnly: true,
+        contextualIngestion: false,
       },
     });
+  });
+
+  it("runs with contextual ingestion enabled by default", async () => {
+    const gateway = new FakeTreasuryRagGateway();
+    const presenter = new GroundedAnswerLabPresenter(vi.fn(), gateway);
+    presenter.start();
+
+    await presenter.submit();
+
+    expect(gateway.runCalls[0]?.config.contextualIngestion).toBe(true);
+    presenter.stop();
   });
 
   it("closes the run stream and aborts creation when stopped", async () => {

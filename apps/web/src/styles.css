@@ -192,6 +192,9 @@ input[type="range"] { width: 100%; accent-color: #bad66b; cursor: pointer; }
 .chunk-card__body > header div > span { color: #65706a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.64rem; }
 .length-pill { color: #9aa49e; background: #171d1a; }
 
+/* Embedded with the chunk, never quotable: shown detached from the source text. */
+.contextual-prefix { margin: 0; padding: 10px 20px; color: #7f93a8; background: rgba(94, 134, 176, 0.10); border-bottom: 1px dashed rgba(94, 134, 176, 0.35); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.66rem; line-height: 1.6; }
+
 pre { margin: 0; padding: 22px 20px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; color: #c4cbc7; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.75rem; line-height: 1.75; }
 mark { margin: 0 -1px; padding: 2px 1px; color: #efe6ba; background: rgba(220, 185, 67, 0.22); border-bottom: 1px solid rgba(220, 185, 67, 0.65); }
 .chunk-card__body > footer { border-top: 1px solid #242b28; color: #56615b; font-size: 0.61rem; }

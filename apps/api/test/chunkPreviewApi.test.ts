@@ -14,10 +14,12 @@ describe("chunk preview API", () => {
       .expect(200);
     const body = DocumentListResponseSchema.parse(response.body);
 
-    expect(body.documents).toHaveLength(5);
+    expect(body.documents).toHaveLength(7);
     expect(body.documents.map((document) => document.tenant)).toEqual([
       "global",
       "global",
+      "acme",
+      "boreal",
       "acme",
       "boreal",
       "acme",
@@ -42,6 +44,42 @@ describe("chunk preview API", () => {
     expect(body.chunks.length).toBeGreaterThan(1);
     expect(body.stats.duplicatedCharacters).toBeGreaterThan(0);
     expect(body.chunks[0]?.tenant).toBe("global");
+  });
+
+  it("reports token statistics alongside the character statistics", async () => {
+    const response = await request(createTestApp())
+      .post("/api/chunks/preview")
+      .send({
+        documentId: "partial-payments",
+        config: { strategy: "tokens", maxTokens: 96, overlapTokens: 24 },
+      })
+      .expect(200);
+    const body = ChunkPreviewResponseSchema.parse(response.body);
+
+    expect(body.stats.documentTokens).toBeGreaterThan(0);
+    expect(body.stats.maximumChunkTokens).toBeGreaterThan(0);
+    expect(body.stats.averageChunkTokens).toBeGreaterThan(0);
+    expect(body.contextualization.tokenizer).toBe("words");
+  });
+
+  it("exposes the contextual prefix separately from the citable text", async () => {
+    const response = await request(createTestApp())
+      .post("/api/chunks/preview")
+      .send({
+        documentId: "boreal-withholdings",
+        config: { strategy: "characters", chunkSize: 300, overlap: 80 },
+      })
+      .expect(200);
+    const body = ChunkPreviewResponseSchema.parse(response.body);
+
+    expect(body.contextualization.enabled).toBe(true);
+    for (const chunk of body.chunks) {
+      expect(chunk.contextualPrefix).toContain("Retenciones impositivas");
+      expect(chunk.text).not.toContain(chunk.contextualPrefix);
+      expect(chunk.embeddingText).toBe(
+        `${chunk.contextualPrefix}\n${chunk.text}`,
+      );
+    }
   });
 
   it("rejects an invalid overlap", async () => {

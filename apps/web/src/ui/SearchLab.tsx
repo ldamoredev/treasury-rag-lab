@@ -42,12 +42,17 @@ export function SearchLab({ presenter, model }: SearchLabProps) {
               <input type="checkbox" checked={model.tenantFilterEnabled} onChange={(event) => presenter.setTenantFilterEnabled(event.target.checked)} />
               <span>Filtrar tenant</span>
             </label>
+            <label className="switch-field">
+              <input type="checkbox" checked={model.contextualIngestion} onChange={(event) => presenter.setContextualIngestion(event.target.checked)} />
+              <span>Ingestión contextual</span>
+            </label>
           </div>
 
           <div className="field-group">
             <span className="field-label">Chunking</span>
             <div className="segmented-control">
               <button type="button" className={model.strategy === "characters" ? "active" : ""} onClick={() => presenter.setStrategy("characters")}>Caracteres</button>
+              <button type="button" className={model.strategy === "tokens" ? "active" : ""} onClick={() => presenter.setStrategy("tokens")}>Tokens</button>
               <button type="button" className={model.strategy === "headings" ? "active" : ""} onClick={() => presenter.setStrategy("headings")}>Headings</button>
             </div>
           </div>
@@ -103,7 +108,7 @@ export function SearchLab({ presenter, model }: SearchLabProps) {
               <article><span>Cache hit / miss</span><strong>{model.metrics.cache}</strong></article>
               <article><span>Duración</span><strong>{model.metrics.duration}</strong><small>milisegundos</small></article>
             </div>
-            <div className="model-strip"><span>{model.metrics.provider}</span><code>{model.metrics.model}</code><span>{model.metrics.dimensions}</span></div>
+            <div className="model-strip"><span>{model.metrics.provider}</span><code>{model.metrics.model}</code><span>{model.metrics.dimensions}</span><span>ctx: {model.metrics.contextualizer}</span></div>
 
             {model.results.length === 0 ? <div className="empty-results">Ningún chunk superó el threshold actual.</div> : (
               <div className="result-list">

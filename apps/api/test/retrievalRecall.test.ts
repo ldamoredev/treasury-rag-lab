@@ -17,6 +17,7 @@ function source(overrides: Partial<SearchResult>): SearchResult {
     effectiveFrom: "2026-01-01",
     score: 0.9,
     text: "texto",
+    contextualPrefix: "",
     startOffset: 0,
     endOffset: 10,
     ...overrides,

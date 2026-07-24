@@ -19,6 +19,7 @@ const request: GroundedAnswerRequest = {
     threshold: 0.7,
     tenantFilterEnabled: true,
     latestVersionOnly: true,
+    contextualIngestion: false,
   },
 };
 
@@ -35,6 +36,7 @@ const searchResponse: SearchResponse = {
       effectiveFrom: "2026-01-01",
       score: 0.92,
       text: "Un pago parcial no cancela la factura pendiente.",
+      contextualPrefix: "",
       startOffset: 0,
       endOffset: 46,
     },
@@ -48,6 +50,8 @@ const searchResponse: SearchResponse = {
     durationMs: 4,
     provider: "fake-embeddings",
     model: "fake-e5",
+    contextualizer: "none",
+    tokenizer: "test",
   },
 };
 

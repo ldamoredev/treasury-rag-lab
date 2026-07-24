@@ -17,10 +17,14 @@ const VARIABLE_LABELS: Record<ExperimentVariable, string> = {
   chunkingStrategy: "Estrategia de chunking",
   chunkSize: "Chunk size",
   overlap: "Overlap",
+  maxChunkSize: "Máximo por chunk",
+  maxTokens: "Máximo de tokens",
+  overlapTokens: "Overlap en tokens",
   topK: "Top-k",
   threshold: "Threshold",
   tenantFilter: "Filtro de tenant",
   latestVersionFilter: "Filtro de versión vigente",
+  contextualIngestion: "Ingestión contextual",
 };
 
 const LAYER_LABELS: Record<ResponsibleLayer, string> = {
@@ -278,13 +282,36 @@ function buildConfigRows(experiment: FailureLabExperiment): ConfigRowVM[] {
   });
 
   return [
-    row("Chunk size", (config) => String(config.chunking.chunkSize), experiment.variable === "chunkSize"),
-    row("Overlap", (config) => String(config.chunking.overlap), experiment.variable === "overlap"),
+    row("Chunking", describeChunking, experiment.variable === "chunkingStrategy"),
+    row("Chunk size", (config) => readChunking(config, "chunkSize"), experiment.variable === "chunkSize"),
+    row("Overlap", (config) => readChunking(config, "overlap"), experiment.variable === "overlap"),
     row("Top-k", (config) => String(config.topK), experiment.variable === "topK"),
     row("Threshold", (config) => config.threshold.toFixed(2), experiment.variable === "threshold"),
     row("Filtro de tenant", (config) => config.tenantFilterEnabled ? "on" : "off", experiment.variable === "tenantFilter"),
     row("Versión vigente", (config) => config.latestVersionOnly ? "on" : "off", experiment.variable === "latestVersionFilter"),
+    row("Ingestión contextual", (config) => config.contextualIngestion ? "on" : "off", experiment.variable === "contextualIngestion"),
   ];
+}
+
+/** Each strategy has its own knobs; a row shows "—" where one does not apply. */
+function describeChunking(config: FailureLabConfig): string {
+  const chunking = config.chunking;
+  switch (chunking.strategy) {
+    case "characters":
+      return `caracteres ${chunking.chunkSize}/${chunking.overlap}`;
+    case "headings":
+      return `headings ≤${chunking.maxChunkSize}`;
+    case "tokens":
+      return `tokens ${chunking.maxTokens}/${chunking.overlapTokens}`;
+  }
+}
+
+function readChunking(
+  config: FailureLabConfig,
+  field: "chunkSize" | "overlap",
+): string {
+  const chunking = config.chunking;
+  return chunking.strategy === "characters" ? String(chunking[field]) : "—";
 }
 
 function formatRate(rate: number | null): string {

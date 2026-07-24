@@ -42,6 +42,11 @@ export const previewResponse: ChunkPreviewResponse = {
     effectiveFrom: "2026-01-15",
     startOffset: 0,
     endOffset: 17,
+    contextualPrefix: "[documento: Política global · tenant: global · versión: v2]",
+    embeddingText:
+      "[documento: Política global · tenant: global · versión: v2]\nTexto de política",
+    embeddingKey: "key-0",
+    tokenCount: 14,
   }],
   stats: {
     documentCharacters: 17,
@@ -50,6 +55,18 @@ export const previewResponse: ChunkPreviewResponse = {
     minimumChunkCharacters: 17,
     maximumChunkCharacters: 17,
     averageChunkCharacters: 17,
+    documentTokens: 3,
+    minimumChunkTokens: 14,
+    maximumChunkTokens: 14,
+    averageChunkTokens: 14,
+    contextualTokens: 11,
+  },
+  contextualization: {
+    enabled: true,
+    contextualizer: "metadata-heading-path",
+    model: "deterministic",
+    promptVersion: "2026-07-metadata-v1",
+    tokenizer: "Xenova/multilingual-e5-small",
   },
 };
 
@@ -65,6 +82,8 @@ export const searchResponse: SearchResponse = {
     durationMs: 2,
     provider: "fake",
     model: "fake-e5",
+    contextualizer: "metadata-heading-path",
+    tokenizer: "Xenova/multilingual-e5-small",
   },
 };
 
@@ -81,6 +100,7 @@ export const failureLabExperimentsResponse: FailureLabExperimentListResponse = {
         threshold: 0.7,
         tenantFilterEnabled: true,
         latestVersionOnly: true,
+        contextualIngestion: false,
       },
       variant: {
         chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
@@ -88,6 +108,7 @@ export const failureLabExperimentsResponse: FailureLabExperimentListResponse = {
         threshold: 0.7,
         tenantFilterEnabled: false,
         latestVersionOnly: true,
+        contextualIngestion: false,
       },
       responsibleLayer: "filtering",
       suggestedFix: "Reactivar el filtro de tenant.",

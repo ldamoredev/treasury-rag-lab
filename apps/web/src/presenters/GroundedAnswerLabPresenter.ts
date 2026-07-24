@@ -86,6 +86,7 @@ export type GroundedAnswerLabViewModel = {
   topK: number;
   threshold: number;
   thresholdLabel: string;
+  contextualIngestion: boolean;
   isLoading: boolean;
   error: string | undefined;
   currentStage: string;
@@ -139,6 +140,9 @@ export class GroundedAnswerLabPresenter {
   private maxChunkSize = 600;
   private topK = 5;
   private threshold = 0.7;
+  private contextualIngestion = true;
+  private maxTokens = 128;
+  private overlapTokens = 24;
   private response: GroundedAnswerResponse | undefined;
   private streamedAnswer = "";
   private trace: RunEvent[] = [];
@@ -228,6 +232,11 @@ export class GroundedAnswerLabPresenter {
     this.refresh();
   }
 
+  setContextualIngestion(enabled: boolean): void {
+    this.contextualIngestion = enabled;
+    this.refresh();
+  }
+
   selectInspectorTab(tab: InspectorTab): void {
     if (this.activeInspectorTab !== tab) {
       this.activeInspectorTab = tab;
@@ -267,6 +276,7 @@ export class GroundedAnswerLabPresenter {
             threshold: this.threshold,
             tenantFilterEnabled: true,
             latestVersionOnly: true,
+            contextualIngestion: this.contextualIngestion,
           },
         },
         {
@@ -358,13 +368,22 @@ export class GroundedAnswerLabPresenter {
   }
 
   private chunkingConfig(): ChunkingConfig {
-    return this.chunkingStrategy === "characters"
-      ? {
+    switch (this.chunkingStrategy) {
+      case "characters":
+        return {
           strategy: "characters",
           chunkSize: this.chunkSize,
           overlap: this.overlap,
-        }
-      : { strategy: "headings", maxChunkSize: this.maxChunkSize };
+        };
+      case "headings":
+        return { strategy: "headings", maxChunkSize: this.maxChunkSize };
+      case "tokens":
+        return {
+          strategy: "tokens",
+          maxTokens: this.maxTokens,
+          overlapTokens: this.overlapTokens,
+        };
+    }
   }
 
   private refresh(): void {
@@ -384,6 +403,7 @@ export class GroundedAnswerLabPresenter {
       overlap: this.overlap,
       maxChunkSize: this.maxChunkSize,
       topK: this.topK,
+      contextualIngestion: this.contextualIngestion,
       threshold: this.threshold,
       thresholdLabel: this.threshold.toFixed(2),
       isLoading: this.isLoading,

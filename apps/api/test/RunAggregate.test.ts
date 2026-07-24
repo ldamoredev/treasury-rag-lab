@@ -12,6 +12,7 @@ const request: GroundedAnswerRequest = {
     threshold: 0.7,
     tenantFilterEnabled: true,
     latestVersionOnly: true,
+    contextualIngestion: false,
   },
 };
 

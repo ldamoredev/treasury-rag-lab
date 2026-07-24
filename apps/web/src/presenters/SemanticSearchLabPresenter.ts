@@ -34,6 +34,7 @@ export type SemanticSearchLabViewModel = {
   threshold: number;
   thresholdLabel: string;
   tenantFilterEnabled: boolean;
+  contextualIngestion: boolean;
   isLoading: boolean;
   error: string | undefined;
   responseTitle: string;
@@ -46,6 +47,7 @@ export type SemanticSearchLabViewModel = {
     provider: string;
     model: string;
     dimensions: string;
+    contextualizer: string;
   } | undefined;
   results: SearchResultVM[];
 };
@@ -60,6 +62,9 @@ export class SemanticSearchLabPresenter {
   private topK = 5;
   private threshold = 0.7;
   private tenantFilterEnabled = true;
+  private contextualIngestion = true;
+  private maxTokens = 128;
+  private overlapTokens = 24;
   private response: SearchResponse | undefined;
   private error: string | undefined;
   private isLoading = false;
@@ -144,6 +149,11 @@ export class SemanticSearchLabPresenter {
     this.refresh();
   }
 
+  setContextualIngestion(enabled: boolean): void {
+    this.contextualIngestion = enabled;
+    this.refresh();
+  }
+
   async submit(): Promise<void> {
     if (!this.started) {
       return;
@@ -167,6 +177,7 @@ export class SemanticSearchLabPresenter {
             threshold: this.threshold,
             tenantFilterEnabled: this.tenantFilterEnabled,
             latestVersionOnly: true,
+            contextualIngestion: this.contextualIngestion,
           },
         },
         { signal: request.signal },
@@ -187,13 +198,22 @@ export class SemanticSearchLabPresenter {
   }
 
   private chunkingConfig(): ChunkingConfig {
-    return this.strategy === "characters"
-      ? {
+    switch (this.strategy) {
+      case "characters":
+        return {
           strategy: "characters",
           chunkSize: this.chunkSize,
           overlap: this.overlap,
-        }
-      : { strategy: "headings", maxChunkSize: this.maxChunkSize };
+        };
+      case "headings":
+        return { strategy: "headings", maxChunkSize: this.maxChunkSize };
+      case "tokens":
+        return {
+          strategy: "tokens",
+          maxTokens: this.maxTokens,
+          overlapTokens: this.overlapTokens,
+        };
+    }
   }
 
   private isCurrent(session: number, signal: AbortSignal): boolean {
@@ -217,6 +237,7 @@ export class SemanticSearchLabPresenter {
       threshold: this.threshold,
       thresholdLabel: this.threshold.toFixed(2),
       tenantFilterEnabled: this.tenantFilterEnabled,
+      contextualIngestion: this.contextualIngestion,
       isLoading: this.isLoading,
       error: this.error,
       responseTitle: this.response
@@ -232,6 +253,7 @@ export class SemanticSearchLabPresenter {
             provider: this.response.stats.provider,
             model: this.response.stats.model,
             dimensions: `${this.response.stats.embeddingDimensions} dimensiones`,
+            contextualizer: this.response.stats.contextualizer,
           }
         : undefined,
       results: this.response?.results.map((result) => ({

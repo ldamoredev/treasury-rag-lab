@@ -27,8 +27,11 @@ export type ChunkVM = {
   index: number;
   offsets: string;
   length: string;
+  tokens: string;
   overlapText: string;
   remainingText: string;
+  /** Shown apart from the text: it steered the vector, it is not evidence. */
+  contextualPrefix: string;
   metadata: string;
 };
 
@@ -40,7 +43,11 @@ export type ChunkingLabViewModel = {
   chunkSize: number;
   overlap: number;
   maxChunkSize: number;
+  maxTokens: number;
+  overlapTokens: number;
   overlapRangeMaximum: number;
+  overlapTokensRangeMaximum: number;
+  contextualizerLabel: string;
   previewTitle: string;
   isLoading: boolean;
   documentsError: string | undefined;
@@ -52,6 +59,10 @@ export type ChunkingLabViewModel = {
     documentCharacters: number;
     duplicatedCharacters: number;
     averageCharacters: number;
+    documentTokens: number;
+    averageTokens: number;
+    maximumTokens: number;
+    contextualTokens: number;
   } | undefined;
   chunks: ChunkVM[];
 };
@@ -63,6 +74,8 @@ export class ChunkingLabPresenter {
   private chunkSize = 300;
   private overlap = 80;
   private maxChunkSize = 600;
+  private maxTokens = 128;
+  private overlapTokens = 24;
   private preview: ChunkPreviewResponse | undefined;
   private documentsError: string | undefined;
   private previewError: string | undefined;
@@ -152,6 +165,24 @@ export class ChunkingLabPresenter {
     this.schedulePreview();
   }
 
+  setMaxTokens(value: number): void {
+    const maxTokens = Math.max(4, Math.min(1_024, value));
+    this.maxTokens = maxTokens;
+    this.overlapTokens = Math.min(this.overlapTokens, maxTokens - 1);
+    this.refresh();
+    this.schedulePreview();
+  }
+
+  setOverlapTokens(value: number): void {
+    const overlapTokens = Math.max(0, Math.min(this.maxTokens - 1, value));
+    if (this.overlapTokens === overlapTokens) {
+      return;
+    }
+    this.overlapTokens = overlapTokens;
+    this.refresh();
+    this.schedulePreview();
+  }
+
   private async loadDocuments(session: number): Promise<void> {
     this.documentRequest?.abort();
     const request = new AbortController();
@@ -224,13 +255,22 @@ export class ChunkingLabPresenter {
   }
 
   private chunkingConfig(): ChunkingConfig {
-    return this.strategy === "characters"
-      ? {
+    switch (this.strategy) {
+      case "characters":
+        return {
           strategy: "characters",
           chunkSize: this.chunkSize,
           overlap: this.overlap,
-        }
-      : { strategy: "headings", maxChunkSize: this.maxChunkSize };
+        };
+      case "headings":
+        return { strategy: "headings", maxChunkSize: this.maxChunkSize };
+      case "tokens":
+        return {
+          strategy: "tokens",
+          maxTokens: this.maxTokens,
+          overlapTokens: this.overlapTokens,
+        };
+    }
   }
 
   private isCurrent(session: number, signal: AbortSignal): boolean {
@@ -263,7 +303,13 @@ export class ChunkingLabPresenter {
       chunkSize: this.chunkSize,
       overlap: this.overlap,
       maxChunkSize: this.maxChunkSize,
+      maxTokens: this.maxTokens,
+      overlapTokens: this.overlapTokens,
       overlapRangeMaximum: Math.min(300, this.chunkSize - 1),
+      overlapTokensRangeMaximum: Math.min(128, this.maxTokens - 1),
+      contextualizerLabel: this.preview
+        ? `${this.preview.contextualization.contextualizer} · ${this.preview.contextualization.tokenizer}`
+        : "—",
       previewTitle: this.preview?.document.title ?? "Preparando documento…",
       isLoading: this.isLoading,
       documentsError: this.documentsError,
@@ -282,6 +328,10 @@ export class ChunkingLabPresenter {
             averageCharacters: Math.round(
               this.preview.stats.averageChunkCharacters,
             ),
+            documentTokens: this.preview.stats.documentTokens,
+            averageTokens: Math.round(this.preview.stats.averageChunkTokens),
+            maximumTokens: this.preview.stats.maximumChunkTokens,
+            contextualTokens: this.preview.stats.contextualTokens,
           }
         : undefined,
       chunks: this.preview?.chunks.map((chunk, index, chunks) => {
@@ -294,8 +344,10 @@ export class ChunkingLabPresenter {
           index: chunk.index,
           offsets: `${chunk.startOffset}–${chunk.endOffset}`,
           length: `${chunk.text.length} chars`,
+          tokens: `${chunk.tokenCount} tokens`,
           overlapText: chunk.text.slice(0, overlapCharacters),
           remainingText: chunk.text.slice(overlapCharacters),
+          contextualPrefix: chunk.contextualPrefix,
           metadata: `${tenantLabel(chunk.tenant)} · v${chunk.version}`,
         };
       }) ?? [],

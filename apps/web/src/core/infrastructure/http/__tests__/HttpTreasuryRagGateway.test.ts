@@ -38,6 +38,7 @@ const runRequest = {
     threshold: 0.7,
     tenantFilterEnabled: true as const,
     latestVersionOnly: true,
+    contextualIngestion: false,
   },
 };
 
@@ -99,6 +100,7 @@ describe("HttpTreasuryRagGateway", () => {
         threshold: 0.7,
         tenantFilterEnabled: true,
         latestVersionOnly: true,
+        contextualIngestion: false,
       },
       variant: {
         chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
@@ -106,6 +108,7 @@ describe("HttpTreasuryRagGateway", () => {
         threshold: 0.7,
         tenantFilterEnabled: false,
         latestVersionOnly: true,
+        contextualIngestion: false,
       },
       responsibleLayer: "filtering",
       suggestedFix: "Reactivar el filtro.",
@@ -139,6 +142,7 @@ describe("HttpTreasuryRagGateway", () => {
           threshold: 0.7,
           tenantFilterEnabled: true,
           latestVersionOnly: true,
+          contextualIngestion: false,
         },
         variant: {
           chunking: { strategy: "characters", chunkSize: 300, overlap: 0 },
@@ -146,6 +150,7 @@ describe("HttpTreasuryRagGateway", () => {
           threshold: 0.7,
           tenantFilterEnabled: false,
           latestVersionOnly: true,
+          contextualIngestion: false,
         },
         responsibleLayer: "filtering",
         suggestedFix: "Reactivar el filtro.",
