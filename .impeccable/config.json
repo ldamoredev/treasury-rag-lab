@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "single-font",
+        "value": "*",
+        "files": [
+          "apps/web/index.html"
+        ],
+        "createdAt": "2026-07-24T14:54:45.341Z",
+        "reason": "Operate-mode tool: one sans (Hanken Grotesk) + system mono for data; hierarchy via weight/size/color per DESIGN.md One Voice Rule"
+      }
+    ]
+  }
+}
