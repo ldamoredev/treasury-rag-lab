@@ -8,6 +8,12 @@ export const SearchConfigSchema = z.object({
   threshold: z.number().min(-1).max(1),
   tenantFilterEnabled: z.boolean(),
   latestVersionOnly: z.boolean().default(true),
+  /**
+   * Defaults to false so a request written before contextual ingestion
+   * existed still describes the exact same pipeline. The baseline stays
+   * reproducible instead of silently becoming a different system.
+   */
+  contextualIngestion: z.boolean().default(false),
 });
 
 export const SearchRequestSchema = z.object({
@@ -25,7 +31,14 @@ export const SearchResultSchema = z.object({
   version: z.number().int().positive(),
   effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   score: z.number().finite().min(-1).max(1),
+  /** Citation text: an exact slice of the source document. */
   text: z.string().min(1),
+  /**
+   * Ingestion-time context that took part in the vector but is not part of
+   * the document. It is exposed so the inspector can show what was actually
+   * embedded, and it must never be presented as quotable evidence.
+   */
+  contextualPrefix: z.string().default(""),
   startOffset: z.number().int().nonnegative(),
   endOffset: z.number().int().positive(),
 });
@@ -39,6 +52,9 @@ export const SearchStatsSchema = z.object({
   durationMs: z.number().nonnegative(),
   provider: z.string().min(1),
   model: z.string().min(1),
+  /** `none` when the retrieved text was embedded without added context. */
+  contextualizer: z.string().min(1).default("none"),
+  tokenizer: z.string().min(1).default("unknown"),
 });
 
 export const SearchResponseSchema = z.object({
