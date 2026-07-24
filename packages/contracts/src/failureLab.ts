@@ -1,15 +1,19 @@
 import { z } from "zod";
 
-import { CharacterChunkingConfigSchema } from "./chunking.js";
+import { ChunkingConfigSchema } from "./chunking.js";
 
 export const ExperimentVariableSchema = z.enum([
   "chunkingStrategy",
   "chunkSize",
   "overlap",
+  "maxChunkSize",
+  "maxTokens",
+  "overlapTokens",
   "topK",
   "threshold",
   "tenantFilter",
   "latestVersionFilter",
+  "contextualIngestion",
 ]);
 
 export const ResponsibleLayerSchema = z.enum([
@@ -36,11 +40,12 @@ export const EvalMetricStatusSchema = z.enum([
 ]);
 
 export const FailureLabConfigSchema = z.object({
-  chunking: CharacterChunkingConfigSchema,
+  chunking: ChunkingConfigSchema,
   topK: z.number().int().min(1).max(20),
   threshold: z.number().min(-1).max(1),
   tenantFilterEnabled: z.boolean(),
   latestVersionOnly: z.boolean(),
+  contextualIngestion: z.boolean(),
 });
 
 export const FailureLabExperimentSchema = z.object({
