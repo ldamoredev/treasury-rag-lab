@@ -1,3 +1,10 @@
+---
+id: partial-payments-v1
+title: "Política global de pagos parciales"
+tenant: global
+version: 1
+effectiveFrom: 2025-03-01
+---
 # Política global de pagos parciales
 
 ## Alcance

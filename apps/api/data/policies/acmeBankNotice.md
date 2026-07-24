@@ -1,3 +1,10 @@
+---
+id: acme-bank-notice
+title: "Aviso bancario de conciliación — Acme"
+tenant: acme
+version: 1
+effectiveFrom: 2026-03-10
+---
 # Aviso bancario de conciliación — Acme
 
 ## Aviso recibido

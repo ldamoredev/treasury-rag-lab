@@ -1,68 +1,50 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-import { DocumentSchema, type Document } from "@treasury-rag/contracts";
+import type { Document } from "@treasury-rag/contracts";
 
+import { MarkdownDocumentParser } from "../domain/MarkdownDocumentParser.js";
 import type { DocumentRepository } from "../ports/DocumentRepository.js";
 
-type DocumentDefinition = Omit<Document, "content"> & {
-  filename: string;
-};
-
-const DOCUMENTS: DocumentDefinition[] = [
-  {
-    id: "partial-payments",
-    title: "Política global de pagos parciales",
-    tenant: "global",
-    version: 2,
-    effectiveFrom: "2026-01-15",
-    filename: "partialPayments.md",
-  },
-  {
-    id: "partial-payments-v1",
-    title: "Política global de pagos parciales",
-    tenant: "global",
-    version: 1,
-    effectiveFrom: "2025-03-01",
-    filename: "partialPaymentsV1.md",
-  },
-  {
-    id: "acme-approvals",
-    title: "Aprobaciones de tesorería — Acme",
-    tenant: "acme",
-    version: 1,
-    effectiveFrom: "2026-02-01",
-    filename: "acmeApprovals.md",
-  },
-  {
-    id: "boreal-approvals",
-    title: "Aprobaciones de tesorería — Boreal",
-    tenant: "boreal",
-    version: 1,
-    effectiveFrom: "2026-02-01",
-    filename: "borealApprovals.md",
-  },
-  {
-    id: "acme-bank-notice",
-    title: "Aviso bancario de conciliación — Acme",
-    tenant: "acme",
-    version: 1,
-    effectiveFrom: "2026-03-10",
-    filename: "acmeBankNotice.md",
-  },
+/**
+ * The corpus is an explicit, ordered list of files rather than a directory
+ * scan: ingestion stays deterministic, and adding a policy is a visible
+ * change. Metadata now lives in each file's frontmatter, so this list carries
+ * filenames only and can no longer disagree with the documents themselves.
+ */
+const DOCUMENT_FILES = [
+  "partialPayments.md",
+  "partialPaymentsV1.md",
+  "acmeApprovals.md",
+  "borealApprovals.md",
+  "acmeBankNotice.md",
+  "borealWithholdings.md",
+  "acmeSettlementWindows.md",
 ];
 
 export class FileDocumentRepository implements DocumentRepository {
   private readonly documents: Document[];
 
-  constructor(definitions: DocumentDefinition[] = DOCUMENTS) {
-    this.documents = definitions.map(({ filename, ...metadata }) => {
+  constructor(
+    filenames: string[] = DOCUMENT_FILES,
+    parser: MarkdownDocumentParser = new MarkdownDocumentParser(),
+  ) {
+    this.documents = filenames.map((filename) => {
       const fileUrl = new URL(
         `../../../data/policies/${filename}`,
         import.meta.url,
       );
-      const content = readFileSync(fileUrl, "utf8").trim();
-      return DocumentSchema.parse({ ...metadata, content });
+      return parser.parse(readFileSync(fileUrl, "utf8"), fileURLToPath(fileUrl));
     });
+
+    const duplicated = this.documents
+      .map((document) => document.id)
+      .filter((id, index, ids) => ids.indexOf(id) !== index);
+    if (duplicated.length > 0) {
+      throw new Error(
+        `Duplicated document ids in the corpus: ${duplicated.join(", ")}`,
+      );
+    }
   }
 
   list(): Document[] {

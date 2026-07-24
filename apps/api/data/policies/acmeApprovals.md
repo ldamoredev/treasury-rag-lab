@@ -1,3 +1,10 @@
+---
+id: acme-approvals
+title: "Aprobaciones de tesorería — Acme"
+tenant: acme
+version: 1
+effectiveFrom: 2026-02-01
+---
 # Aprobaciones de tesorería — Acme
 
 ## Regla específica

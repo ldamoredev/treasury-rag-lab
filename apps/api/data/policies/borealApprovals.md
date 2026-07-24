@@ -1,3 +1,10 @@
+---
+id: boreal-approvals
+title: "Aprobaciones de tesorería — Boreal"
+tenant: boreal
+version: 1
+effectiveFrom: 2026-02-01
+---
 # Aprobaciones de tesorería — Boreal
 
 ## Regla específica
