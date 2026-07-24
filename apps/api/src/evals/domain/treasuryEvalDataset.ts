@@ -1,6 +1,6 @@
 import { EvalDatasetSchema, type EvalCase } from "./evalCase.js";
 
-export const TREASURY_EVAL_DATASET_VERSION = "1.0.0";
+export const TREASURY_EVAL_DATASET_VERSION = "1.1.0";
 
 /**
  * Versioned evaluation dataset. Evidence expectations are semantically
@@ -233,6 +233,81 @@ export const treasuryEvalDataset: EvalCase[] = EvalDatasetSchema.parse([
       {
         documentId: "partial-payments",
         fragment: "puede marcarla como cancelada",
+      },
+    ],
+    shouldAbstain: false,
+    expectedExactValues: [],
+    forbiddenFragments: [],
+    allowedTenants: ["acme"],
+  },
+  /**
+   * Ambiguous fragments (added in 1.1.0). Each expected sentence is a
+   * complete, well-formed clause that says nothing about which policy, which
+   * client or which section it belongs to. They are the cases contextual
+   * ingestion exists for — and the oracle is written the same way as every
+   * other case, anchored to a document ID and a literal fragment, so the
+   * feature has to earn the recall instead of being scored by a friendlier
+   * rule.
+   */
+  {
+    id: "ambiguous-tolerance-fragment",
+    name: "Fragmento ambiguo: tolerancia",
+    description:
+      "La frase que responde la pregunta no nombra al cliente, la retención ni la tolerancia: sólo su sección y su documento lo hacen.",
+    query:
+      "¿Cuál es el criterio de tolerancia de Boreal para las retenciones impositivas del agente de recaudación?",
+    tenant: "boreal",
+    tags: ["retrieval", "ambiguous-chunk", "contextual-ingestion"],
+    referenceAnswer:
+      "Cuando el valor queda por debajo del límite fijado para el tramo, la diferencia se considera aceptable: se registra la observación y se continúa con la aplicación, sin abrir un caso ni retener el movimiento.",
+    expectedEvidence: [
+      {
+        documentId: "boreal-withholdings",
+        fragment: "La diferencia se considera aceptable",
+      },
+    ],
+    shouldAbstain: false,
+    expectedExactValues: [],
+    forbiddenFragments: [],
+    allowedTenants: ["boreal"],
+  },
+  {
+    id: "ambiguous-deadline-fragment",
+    name: "Fragmento ambiguo: plazo",
+    description:
+      "Control del experimento: la frase es igual de ambigua, pero su sección comparte vocabulario con la pregunta y ya se recuperaba sin contexto.",
+    query:
+      "¿Qué plazo de regularización tiene Acme para las ventanas de movimientos observados?",
+    tenant: "acme",
+    tags: ["retrieval", "ambiguous-chunk", "contextual-ingestion"],
+    referenceAnswer:
+      "El plazo es de 48 horas, contadas desde el asiento de la marca y de forma continua, sin detenerse los fines de semana ni los feriados.",
+    expectedEvidence: [
+      {
+        documentId: "acme-settlement-windows",
+        fragment: "El plazo es de 48 horas",
+      },
+    ],
+    shouldAbstain: false,
+    expectedExactValues: ["48 horas"],
+    forbiddenFragments: [],
+    allowedTenants: ["acme"],
+  },
+  {
+    id: "ambiguous-extra-approval-fragment",
+    name: "Fragmento ambiguo: aprobación adicional",
+    description:
+      "La frase no dice qué operación ni por qué; sin el contexto de su sección queda fuera del top-k pese a responder exactamente la pregunta.",
+    query:
+      "¿Qué exige Acme en la segunda revisión de una ventana de regularización vencida?",
+    tenant: "acme",
+    tags: ["retrieval", "ambiguous-chunk", "contextual-ingestion"],
+    referenceAnswer:
+      "La operación requiere aprobación adicional: no alcanza el visto del mismo equipo que preparó el caso, y el asiento queda bloqueado hasta registrar el visto que corresponde.",
+    expectedEvidence: [
+      {
+        documentId: "acme-settlement-windows",
+        fragment: "La operación requiere aprobación adicional",
       },
     ],
     shouldAbstain: false,

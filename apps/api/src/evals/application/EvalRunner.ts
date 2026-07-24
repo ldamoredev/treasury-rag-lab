@@ -28,12 +28,19 @@ import { latestVersionMetric } from "../domain/latestVersionCheck.js";
 import { retrievalRecallMetric } from "../domain/retrievalRecall.js";
 import type { EvalGrader } from "../ports/EvalGrader.js";
 
+/**
+ * Contextual ingestion is on by default because it is the system's default
+ * behaviour after slice 8. The pre-slice-8 pipeline stays reachable and
+ * reproducible by setting `contextualIngestion` to false, which is exactly
+ * what the Failure Lab experiment does.
+ */
 export const DEFAULT_EVAL_CONFIG: SearchConfig = {
   chunking: { strategy: "characters", chunkSize: 300, overlap: 80 },
   topK: 5,
   threshold: 0.7,
   tenantFilterEnabled: true,
   latestVersionOnly: true,
+  contextualIngestion: true,
 };
 
 export type EvalRunMode = "retrieval" | "grounded";
@@ -270,6 +277,8 @@ function resolveCaseConfig(
       ?? DEFAULT_EVAL_CONFIG.tenantFilterEnabled,
     latestVersionOnly: overrides?.latestVersionOnly
       ?? DEFAULT_EVAL_CONFIG.latestVersionOnly,
+    contextualIngestion: overrides?.contextualIngestion
+      ?? DEFAULT_EVAL_CONFIG.contextualIngestion,
   };
 }
 

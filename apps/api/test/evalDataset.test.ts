@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import { FileDocumentRepository } from "../src/documents/infrastructure/FileDocumentRepository.js";
 import { EvalDatasetSchema } from "../src/evals/domain/evalCase.js";
 import { treasuryEvalDataset } from "../src/evals/domain/treasuryEvalDataset.js";
 
 describe("treasury eval dataset", () => {
-  it("loads and validates exactly ten cases", () => {
+  it("loads and validates exactly thirteen cases", () => {
     const parsed = EvalDatasetSchema.parse(treasuryEvalDataset);
 
-    expect(parsed).toHaveLength(10);
+    expect(parsed).toHaveLength(13);
   });
 
-  it("covers the ten required scenario types with stable ids", () => {
+  it("covers the required scenario types with stable ids", () => {
     expect(treasuryEvalDataset.map((evalCase) => evalCase.id)).toEqual([
       "single-chunk-answer",
       "distributed-two-chunks",
@@ -22,6 +23,9 @@ describe("treasury eval dataset", () => {
       "exact-amount-and-date",
       "prompt-injection-in-document",
       "ambiguous-tenant-conflict",
+      "ambiguous-tolerance-fragment",
+      "ambiguous-deadline-fragment",
+      "ambiguous-extra-approval-fragment",
     ]);
   });
 
@@ -67,6 +71,37 @@ describe("treasury eval dataset", () => {
   it("declares allowed tenants consistent with each case tenant", () => {
     for (const evalCase of treasuryEvalDataset) {
       expect(evalCase.allowedTenants).toContain(evalCase.tenant);
+    }
+  });
+
+  it("anchors every expected fragment to text that exists in the corpus", () => {
+    const documents = new FileDocumentRepository();
+
+    for (const evalCase of treasuryEvalDataset) {
+      for (const evidence of evalCase.expectedEvidence) {
+        const document = documents.findById(evidence.documentId);
+        expect(document, `unknown document ${evidence.documentId}`).toBeDefined();
+        expect(
+          document!.content.includes(evidence.fragment),
+          `${evalCase.id}: “${evidence.fragment}” is not in ${evidence.documentId}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the ambiguous fragments free of the terms their question uses", () => {
+    // The point of these cases: the sentence answers the question without
+    // sharing its vocabulary. If a fragment started naming the tenant or the
+    // topic, the case would stop measuring contextual ingestion.
+    const ambiguous = treasuryEvalDataset.filter((evalCase) =>
+      evalCase.tags.includes("ambiguous-chunk")
+    );
+    expect(ambiguous).toHaveLength(3);
+
+    for (const evalCase of ambiguous) {
+      for (const evidence of evalCase.expectedEvidence) {
+        expect(evidence.fragment.toLowerCase()).not.toContain(evalCase.tenant);
+      }
     }
   });
 });
